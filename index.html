@@ -145,6 +145,28 @@
   .status-done{color:var(--dna);}
   .status-open{color:var(--amber);}
   .status-locked{color:var(--danger);}
+  .modRow{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+  .modChip{
+    border:1px solid var(--line); border-radius:8px; padding:4px 8px; font-size:9px;
+    color:var(--text-dim); background:#08181a;
+  }
+  .modChip.active{border-color:var(--dna); color:var(--dna);}
+
+  .labItem{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:8px; padding:10px; text-align:left;
+  }
+  .labItem .lName{font-size:13px; font-weight:bold; color:var(--teal); display:flex; justify-content:space-between; align-items:center;}
+  .labItem .lLevel{font-size:10px; color:var(--amber);}
+  .labItem .lDesc{font-size:10px; color:var(--text-dim); margin-top:4px; line-height:1.4;}
+  .labItem .lBtnRow{display:flex; justify-content:space-between; align-items:center; margin-top:8px;}
+  .lUpBtn{
+    background:var(--dna); color:#022017; border:none; border-radius:6px; padding:6px 12px;
+    font-family:inherit; font-weight:bold; font-size:11px;
+  }
+  .lUpBtn:disabled{background:#1e2a28; color:var(--text-dim);}
+  .lDots{display:flex; gap:3px;}
+  .lDot{width:8px; height:8px; border-radius:50%; background:#123033;}
+  .lDot.filled{background:var(--dna);}
 
   #bossBanner{
     position:absolute; top:40%; left:50%; transform:translate(-50%,-50%);
@@ -174,6 +196,7 @@
       <span id="timeTag">00:00</span>
       <div id="topBtns">
         <button class="iconBtn" id="btnWorlds">MUNDOS</button>
+        <button class="iconBtn" id="btnLab">LAB</button>
         <button class="iconBtn" id="btnStats">STATS</button>
         <button class="iconBtn" id="btnEnc">ENCICLOP.</button>
       </div>
@@ -237,8 +260,16 @@
 
   <div class="overlay hidden" id="screenWorldMap">
     <h2>MAPA EVOLUTIVO</h2>
+    <p class="sub" id="modActiveSub"></p>
     <div class="list" id="worldMapList"></div>
     <button class="ghostBtn" id="btnCloseWorlds">CERRAR</button>
+  </div>
+
+  <div class="overlay hidden" id="screenLab">
+    <h2>LABORATORIO GENÉTICO</h2>
+    <p class="sub" id="dnaLabSub"></p>
+    <div class="list" id="labList"></div>
+    <button class="ghostBtn" id="btnCloseLab">CERRAR</button>
   </div>
 
   <div class="overlay hidden" id="screenStats">
@@ -374,6 +405,43 @@ const ALL_MUTATION_IDS = Object.keys(MUTATIONS);
 const COMBOS = ALL_MUTATION_IDS.filter(id=>MUTATIONS[id].hidden).map(id=>({parts:MUTATIONS[id].parts, result:id}));
 
 // =========================================================================
+// LABORATORIO — niveles y costos (1-5). Los niveles altos no son solo +%,
+// desbloquean comportamientos nuevos vía LEVEL_PERKS.
+// =========================================================================
+const LEVEL_COSTS = [100, 200, 350, 550, 800]; // costo para pasar de nivel i -> i+1 (índice 0 = nivel1->2)
+const MAX_LEVEL = 5;
+// Descripciones de lo que desbloquea cada nivel para mutaciones "estrella".
+// Las demás usan una descripción genérica de escalado.
+const LEVEL_PERKS = {
+  veneno: ['+1 acumulación de veneno','+2 acumulaciones','El veneno puede propagarse a enemigos cercanos','Los enemigos infectados contagian a otros','Las muertes por infección generan una nube tóxica'],
+  mandibula: ['+10% daño','+20% daño','+30% daño','+40% daño','+50% daño y +8% crítico'],
+  caparazon: ['+8% defensa','+16% defensa','+24% defensa','+32% defensa','+40% defensa y refleja 10% del daño'],
+  regeneracion: ['+0.2 regen/s','+0.4 regen/s','+0.7 regen/s','+1.0 regen/s','+1.4 regen/s y cura al matar'],
+  aletas: ['+6% velocidad','+12% velocidad','+18% velocidad','+24% velocidad','+30% velocidad y esquiva +8%'],
+  divisioncelular: ['+3% prob. clon','+6% prob. clon','+9% prob. clon','+12% prob. clon','+15% prob. clon y clones más fuertes'],
+};
+function levelBonusMult(level){ return 1 + (level-1)*0.05; } // boost genérico aplicado a todas las mutaciones según su nivel
+function getMutationLevel(id){ return (session.mutationLevels && session.mutationLevels[id]) || 1; }
+function getUpgradeCost(id){
+  const lvl = getMutationLevel(id);
+  if(lvl>=MAX_LEVEL) return null;
+  return LEVEL_COSTS[lvl-1];
+}
+function getLevelDesc(id, lvl){
+  if(LEVEL_PERKS[id]) return LEVEL_PERKS[id][lvl-1] || LEVEL_PERKS[id][LEVEL_PERKS[id].length-1];
+  return 'Nivel '+lvl+': efecto base +'+Math.round((levelBonusMult(lvl)-1)*100)+'%';
+}
+
+// =========================================================================
+// MODIFICADORES DE RETO (opcionales, se activan antes de iniciar una run)
+// =========================================================================
+const MODIFIERS = {
+  furia:{ name:'Enemigos Enfurecidos', desc:'+100% enemigos, +150% ADN', dnaMult:2.5, spawnMult:2, foodMult:1 },
+  hambruna:{ name:'Poco Alimento', desc:'-50% comida, +100% ADN', dnaMult:2, spawnMult:1, foodMult:0.5 },
+};
+let activeModifiers = {}; // {id:true} — se resetea al cerrar el mapa si no se confirma
+
+// =========================================================================
 // 2. ENEMIGOS
 // =========================================================================
 const ENEMY_TYPES = {
@@ -431,6 +499,7 @@ function defaultSession(){
     dna:0,
     inheritSingle:null,   // 1 mutación heredada tras muerte normal
     inheritDouble:null,   // 2 mutaciones heredadas al completar un mundo
+    mutationLevels:{},    // {mutationId: nivel 1-5}, mejorado en el Laboratorio con ADN
     stats:{ totalKills:0, totalDeaths:0, bestTime:0 },
   };
 }
@@ -483,6 +552,7 @@ function startRun(worldId){
     startMutations = [session.inheritSingle];
     session.inheritSingle = null;
   }
+  const mods = Object.keys(activeModifiers).filter(id=>activeModifiers[id]);
   run = {
     world, time:0, running:true, paused:false, ended:false,
     level:1, killCount:0,
@@ -493,7 +563,12 @@ function startRun(worldId){
     bossSpawned:false, bossDefeated:false,
     joy:{x:0,y:0,active:false}, cam:{x:0,y:0},
     player: freshPlayer(),
+    modifiers: mods,
+    dnaMult: mods.reduce((acc,id)=>acc * (MODIFIERS[id]?MODIFIERS[id].dnaMult:1), 1),
+    spawnMult: mods.reduce((acc,id)=>acc * (MODIFIERS[id]?MODIFIERS[id].spawnMult:1), 1),
+    foodMult: mods.reduce((acc,id)=>acc * (MODIFIERS[id]?MODIFIERS[id].foodMult:1), 1),
   };
+  activeModifiers = {};
   recalcStats();
   run.player.hp = run.player.maxHp;
   run.player.energy = run.player.maxEnergy;
@@ -514,7 +589,13 @@ function recalcStats(){
               reflect:0, sharedStats:false, thorns:0, chill:false, chain:false,
               slowImmune:false, acid:false, cloneChance:0, cloneSpeedMult:1,
               energyEff:1, energyRegen:0, repro:1, regen:0 };
-  run.mutations.forEach(id=>{ const mu = MUTATIONS[id]; if(mu) mu.apply(m); });
+  run.mutations.forEach(id=>{
+    const mu = MUTATIONS[id]; if(!mu) return;
+    mu.apply(m);
+    // Bonus del Laboratorio: cada nivel por encima de 1 refuerza levemente ataque/defensa/vida.
+    const lb = levelBonusMult(getMutationLevel(id));
+    if(lb>1){ m.atk*=lb; m.def*=lb; m.hp*=1+(lb-1)*0.6; }
+  });
 
   const lvlMult = 1 + (run.level-1)*0.12;
   const genMult = 1 + (session.generation-1)*0.03;
@@ -706,7 +787,8 @@ function updateSpawns(dt){
   if(run.spawnTimer<=0){
     const interval = clamp(3.2 - run.time/140, 0.9, 3.2);
     run.spawnTimer = interval;
-    const count = run.time>150 ? randInt(1,3) : (run.time>60?randInt(1,2):1);
+    let count = run.time>150 ? randInt(1,3) : (run.time>60?randInt(1,2):1);
+    count = Math.max(1, Math.round(count * (run.spawnMult||1)));
     for(let i=0;i<count;i++) spawnEnemy(weightedEnemyType());
   }
   if(!run.bossSpawned && run.time>=run.world.bossAt){
@@ -792,7 +874,7 @@ function checkWorldCompletion(){
       session.unlockedWorlds.push(nextId);
       WORLDS[nextId].mutationPool.forEach(unlockMutation);
     }
-    const dnaEarned = Math.round(rand(world.dnaRange[0], world.dnaRange[1]) + run.killCount*2 + session.discoveredCombos.length*15);
+    const dnaEarned = Math.round((rand(world.dnaRange[0], world.dnaRange[1]) + run.killCount*2 + session.discoveredCombos.length*15) * (run.dnaMult||1));
     session.dna += dnaEarned;
     saveSession();
 
@@ -892,8 +974,9 @@ function update(dt){
   for(let i=run.pellets.length-1;i>=0;i--){
     const pel = run.pellets[i];
     if(dist(pel,p) < p.r+10){
-      p.energy = Math.min(p.maxEnergy, p.energy + pel.food*1.1);
-      p.food = Math.min(p.maxFood, p.food + pel.food*0.6);
+      const fm = run.foodMult||1;
+      p.energy = Math.min(p.maxEnergy, p.energy + pel.food*1.1*fm);
+      p.food = Math.min(p.maxFood, p.food + pel.food*0.6*fm);
       run.pellets.splice(i,1);
     }
   }
@@ -1087,7 +1170,7 @@ function updateHudBars(){
 function triggerDeath(){
   run.running = false; run.ended = true;
   session.stats.totalDeaths++;
-  const dnaEarned = Math.round(run.time*0.6 + run.killCount*1.5);
+  const dnaEarned = Math.round((run.time*0.6 + run.killCount*1.5) * (run.dnaMult||1));
   session.dna += dnaEarned;
   session.generation = clamp(session.generation+1, 1, 999);
   saveSession();
@@ -1125,7 +1208,7 @@ function triggerDeath(){
 // 12. UI AUXILIAR
 // =========================================================================
 function hideAllOverlays(){
-  ['screenMutation','screenReplace','screenDeath','screenWorldComplete','screenInherit2','screenWorldMap','screenStats','screenEnc'].forEach(id=>{
+  ['screenMutation','screenReplace','screenDeath','screenWorldComplete','screenInherit2','screenWorldMap','screenLab','screenStats','screenEnc'].forEach(id=>{
     document.getElementById(id).classList.add('hidden');
   });
 }
@@ -1165,10 +1248,35 @@ function openEncyclopedia(){
   document.getElementById('screenEnc').classList.remove('hidden');
 }
 
+function refreshModActiveSub(){
+  const active = Object.keys(activeModifiers).filter(id=>activeModifiers[id]);
+  document.getElementById('modActiveSub').textContent = active.length
+    ? 'Modificadores activos: ' + active.map(id=>MODIFIERS[id].name).join(', ')
+    : 'Sin modificadores activos. Tócalos para activarlos antes de elegir un mundo.';
+}
+
 function openWorldMap(){
   if(run) run.paused = true;
+  refreshModActiveSub();
   const list = document.getElementById('worldMapList');
   list.innerHTML = '';
+
+  const modWrap = document.createElement('div');
+  modWrap.className = 'modRow';
+  Object.keys(MODIFIERS).forEach(mid=>{
+    const mo = MODIFIERS[mid];
+    const chip = document.createElement('div');
+    chip.className = 'modChip' + (activeModifiers[mid] ? ' active':'');
+    chip.textContent = mo.name + ' — ' + mo.desc;
+    chip.onclick = ()=>{
+      activeModifiers[mid] = !activeModifiers[mid];
+      chip.classList.toggle('active');
+      refreshModActiveSub();
+    };
+    modWrap.appendChild(chip);
+  });
+  list.appendChild(modWrap);
+
   WORLD_ORDER.forEach(id=>{
     const w = WORLDS[id];
     const unlocked = session.unlockedWorlds.includes(id);
@@ -1191,6 +1299,50 @@ function openWorldMap(){
     list.appendChild(div);
   });
   document.getElementById('screenWorldMap').classList.remove('hidden');
+}
+
+function openLab(){
+  if(run) run.paused = true;
+  document.getElementById('dnaLabSub').textContent = 'ADN disponible: 🧬 ' + Math.floor(session.dna);
+  const list = document.getElementById('labList');
+  list.innerHTML = '';
+  const unlockedIds = session.unlockedMutations.filter(id=>MUTATIONS[id] && !MUTATIONS[id].hidden);
+  const discoveredCombos = session.discoveredCombos.slice();
+  const orderedIds = [...unlockedIds, ...discoveredCombos];
+  if(orderedIds.length===0){
+    const div = document.createElement('div');
+    div.className='encItem';
+    div.innerHTML = '<div class="encName">Aún no hay mutaciones desbloqueadas</div><div class="encDesc">Juega el Mundo 1 para empezar a desbloquear tu genética.</div>';
+    list.appendChild(div);
+  }
+  orderedIds.forEach(id=>{
+    const mu = MUTATIONS[id];
+    const lvl = getMutationLevel(id);
+    const cost = getUpgradeCost(id);
+    const div = document.createElement('div');
+    div.className = 'labItem';
+    const dots = Array.from({length:MAX_LEVEL}, (_,i)=>`<div class="lDot ${i<lvl?'filled':''}"></div>`).join('');
+    div.innerHTML = `
+      <div class="lName"><span>${mu.icon} ${mu.name}</span><span class="lLevel">NIVEL ${lvl}/${MAX_LEVEL}</span></div>
+      <div class="lDots">${dots}</div>
+      <div class="lDesc">${getLevelDesc(id, lvl)}</div>
+      <div class="lBtnRow">
+        <span class="lDesc">${cost ? 'Siguiente: '+getLevelDesc(id, lvl+1) : 'Nivel máximo alcanzado'}</span>
+        <button class="lUpBtn" ${(!cost || session.dna<cost) ? 'disabled':''}>${cost ? 'MEJORAR · '+cost+' 🧬' : 'MAX'}</button>
+      </div>`;
+    const btn = div.querySelector('.lUpBtn');
+    if(cost && session.dna>=cost){
+      btn.onclick = ()=>{
+        session.dna -= cost;
+        session.mutationLevels[id] = lvl+1;
+        saveSession();
+        if(run) recalcStats();
+        openLab();
+      };
+    }
+    list.appendChild(div);
+  });
+  document.getElementById('screenLab').classList.remove('hidden');
 }
 
 // =========================================================================
@@ -1264,6 +1416,8 @@ document.getElementById('btnEnc').onclick = openEncyclopedia;
 document.getElementById('btnCloseEnc').onclick = ()=>{ document.getElementById('screenEnc').classList.add('hidden'); if(run) run.paused=false; };
 document.getElementById('btnWorlds').onclick = openWorldMap;
 document.getElementById('btnCloseWorlds').onclick = ()=>{ document.getElementById('screenWorldMap').classList.add('hidden'); if(run) run.paused=false; };
+document.getElementById('btnLab').onclick = openLab;
+document.getElementById('btnCloseLab').onclick = ()=>{ document.getElementById('screenLab').classList.add('hidden'); if(run) run.paused=false; };
 
 // =========================================================================
 // INICIO
