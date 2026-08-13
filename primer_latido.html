@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>PRIMER LATIDO — Evolución Celular</title>
+<style>
+  :root{
+    --bg-deep:#04080a;
+    --bg-panel:#0a1416;
+    --line:#123033;
+    --teal:#3ddad0;
+    --teal-dim:#1f6e69;
+    --amber:#ffb454;
+    --danger:#ff4d6d;
+    --violet:#b06cff;
+    --dna:#66ffb2;
+    --text:#d9f2ef;
+    --text-dim:#7fa5a1;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    background:var(--bg-deep); color:var(--text);
+    font-family:'Courier New', ui-monospace, monospace;
+    overflow:hidden; overscroll-behavior:none;
+  }
+  #app{position:fixed; inset:0; display:flex; flex-direction:column;}
+
+  /* ---------- HUD ---------- */
+  #hud{
+    display:flex; flex-direction:column; gap:6px;
+    padding:8px 10px 6px 10px; background:linear-gradient(180deg,#061012,#04080a 90%);
+    border-bottom:1px solid var(--line); z-index:5;
+  }
+  .hud-row{display:flex; align-items:center; gap:8px; font-size:11px;}
+  .bar-wrap{flex:1; height:12px; background:#08181a; border:1px solid var(--line); border-radius:6px; overflow:hidden; position:relative;}
+  .bar-fill{height:100%; width:0%; transition:width .15s linear;}
+  .bar-fill.hp{background:linear-gradient(90deg,#ff4d6d,#ff8aa3);}
+  .bar-fill.energy{background:linear-gradient(90deg,#3ddad0,#7fe9e2);}
+  .bar-fill.food{background:linear-gradient(90deg,#ffb454,#ffd394);}
+  .bar-fill.boss{background:linear-gradient(90deg,#ff2d6b,#ff8aa3);}
+  .hud-label{width:52px; flex-shrink:0; color:var(--text-dim); letter-spacing:.5px;}
+  .hud-top{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;}
+  #genTag{color:var(--amber); font-weight:bold;}
+  #worldTag{color:var(--teal); font-weight:bold;}
+  #timeTag{color:var(--text-dim);}
+  #dnaTag{color:var(--dna); font-weight:bold;}
+  #topBtns{display:flex; gap:6px;}
+  .iconBtn{
+    background:#08181a; border:1px solid var(--line); color:var(--text-dim);
+    border-radius:6px; padding:4px 7px; font-size:10px; font-family:inherit;
+  }
+  #slotsRow{display:flex; gap:4px; overflow-x:auto; padding:2px 0;}
+  .slot{
+    flex-shrink:0; width:30px; height:30px; border-radius:7px; border:1px solid var(--teal-dim);
+    background:#08181a; display:flex; align-items:center; justify-content:center; font-size:15px;
+    position:relative;
+  }
+  .slot.empty{border-style:dashed; opacity:.5;}
+  .slot.combo{border-color:var(--violet); box-shadow:0 0 6px rgba(176,108,255,.5);}
+
+  /* ---------- Canvas area ---------- */
+  #canvasWrap{position:relative; flex:1; min-height:0; background:#020506;}
+  canvas{display:block; width:100%; height:100%;}
+  #notifyLayer{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; gap:4px; align-items:center; pointer-events:none; z-index:4;
+  }
+  .notify{
+    background:rgba(10,20,22,.9); border:1px solid var(--teal-dim); color:var(--teal);
+    padding:5px 12px; border-radius:14px; font-size:11px; opacity:0; transform:translateY(-6px);
+    animation:notifyIn 3.2s ease forwards; text-align:center;
+  }
+  .notify.synergy{border-color:var(--violet); color:var(--violet); font-weight:bold;}
+  .notify.dna{border-color:var(--dna); color:var(--dna);}
+  @keyframes notifyIn{
+    0%{opacity:0; transform:translateY(-6px);}
+    10%{opacity:1; transform:translateY(0);}
+    80%{opacity:1;}
+    100%{opacity:0; transform:translateY(-4px);}
+  }
+
+  /* ---------- Controls ---------- */
+  #controls{
+    position:absolute; bottom:14px; left:14px; width:110px; height:110px;
+    border-radius:50%; background:rgba(61,218,208,.06); border:1px solid var(--teal-dim);
+    touch-action:none; z-index:4;
+  }
+  #stick{
+    position:absolute; width:44px; height:44px; border-radius:50%;
+    background:rgba(61,218,208,.35); border:1px solid var(--teal);
+    left:33px; top:33px; pointer-events:none;
+  }
+
+  /* ---------- Overlays ---------- */
+  .overlay{
+    position:absolute; inset:0; background:rgba(2,5,6,.96); z-index:20;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:20px; text-align:center; gap:12px; overflow-y:auto;
+  }
+  .hidden{display:none !important;}
+  h1{font-size:22px; letter-spacing:2px; color:var(--teal); margin:0;}
+  h2{font-size:16px; letter-spacing:1px; color:var(--amber); margin:0;}
+  p.sub{color:var(--text-dim); font-size:12px; line-height:1.5; max-width:320px;}
+  .bigBtn{
+    background:var(--teal); color:#02201d; border:none; padding:12px 26px;
+    font-family:inherit; font-weight:bold; font-size:14px; border-radius:8px; letter-spacing:1px;
+  }
+  .ghostBtn{
+    background:transparent; color:var(--text-dim); border:1px solid var(--line);
+    padding:8px 16px; font-family:inherit; font-size:12px; border-radius:8px;
+  }
+
+  #mutationCards{display:flex; flex-direction:column; gap:10px; width:100%; max-width:340px;}
+  .card{
+    background:var(--bg-panel); border:1px solid var(--teal-dim); border-radius:10px;
+    padding:12px; text-align:left; cursor:pointer;
+  }
+  .card:active{background:#0f2224;}
+  .card.selected{border-color:var(--dna); box-shadow:0 0 8px rgba(102,255,178,.4);}
+  .card .cName{color:var(--teal); font-weight:bold; font-size:14px; display:flex; justify-content:space-between;}
+  .card .cCat{font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;}
+  .card .cDesc{font-size:11px; color:var(--text); margin-top:4px; line-height:1.4;}
+
+  .list{width:100%; max-width:340px; max-height:46vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px;}
+  .statRow{display:flex; justify-content:space-between; font-size:12px; border-bottom:1px dashed var(--line); padding:4px 0; width:100%;}
+  .encItem{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; text-align:left;
+  }
+  .encItem.known{border-color:var(--teal-dim);}
+  .encItem.hiddenType{border-color:#332; color:var(--text-dim); font-style:italic;}
+  .encName{font-size:12px; font-weight:bold; color:var(--teal);}
+  .encDesc{font-size:10px; color:var(--text-dim); margin-top:2px;}
+
+  .worldCard{
+    width:100%; max-width:340px; border-radius:10px; padding:14px; text-align:left;
+    border:1px solid var(--line); background:var(--bg-panel); position:relative;
+  }
+  .worldCard.locked{opacity:.45;}
+  .worldCard.current{border-color:var(--teal);}
+  .worldCard .wName{font-size:15px; font-weight:bold;}
+  .worldCard .wSub{font-size:10px; color:var(--text-dim); margin-top:2px;}
+  .worldCard .wStatus{font-size:10px; margin-top:6px; letter-spacing:.5px;}
+  .status-done{color:var(--dna);}
+  .status-open{color:var(--amber);}
+  .status-locked{color:var(--danger);}
+
+  #bossBanner{
+    position:absolute; top:40%; left:50%; transform:translate(-50%,-50%);
+    color:var(--danger); font-size:18px; letter-spacing:1.5px; text-shadow:0 0 12px var(--danger);
+    opacity:0; z-index:10; pointer-events:none; text-align:center; padding:0 20px;
+  }
+  #bossBanner.show{animation:bossPulse 3s ease forwards;}
+  @keyframes bossPulse{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(.8);}
+    15%{opacity:1; transform:translate(-50%,-50%) scale(1.05);}
+    85%{opacity:1;}
+    100%{opacity:0; transform:translate(-50%,-60%) scale(1);}
+  }
+  #bossHpWrap{position:absolute; top:6px; left:50%; transform:translateX(-50%); width:80%; max-width:400px; z-index:6; display:none;}
+  #bossHpWrap.show{display:block;}
+  #bossHpLabel{font-size:10px; color:var(--danger); text-align:center; margin-bottom:2px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="hud">
+    <div class="hud-top">
+      <span id="worldTag">MUNDO 1</span>
+      <span id="genTag">GEN. 1</span>
+      <span id="dnaTag">🧬 0</span>
+      <span id="timeTag">00:00</span>
+      <div id="topBtns">
+        <button class="iconBtn" id="btnWorlds">MUNDOS</button>
+        <button class="iconBtn" id="btnStats">STATS</button>
+        <button class="iconBtn" id="btnEnc">ENCICLOP.</button>
+      </div>
+    </div>
+    <div class="hud-row"><span class="hud-label">VIDA</span><div class="bar-wrap"><div class="bar-fill hp" id="barHp"></div></div></div>
+    <div class="hud-row"><span class="hud-label">ENERGÍA</span><div class="bar-wrap"><div class="bar-fill energy" id="barEnergy"></div></div></div>
+    <div class="hud-row"><span class="hud-label">ALIMENTO</span><div class="bar-wrap"><div class="bar-fill food" id="barFood"></div></div></div>
+    <div id="slotsRow"></div>
+  </div>
+
+  <div id="canvasWrap">
+    <canvas id="gameCanvas"></canvas>
+    <div id="notifyLayer"></div>
+    <div id="bossHpWrap"><div id="bossHpLabel"></div><div class="bar-wrap"><div class="bar-fill boss" id="barBoss"></div></div></div>
+    <div id="bossBanner"></div>
+    <div id="controls"><div id="stick"></div></div>
+  </div>
+
+  <div class="overlay" id="screenStart">
+    <h1>PRIMER LATIDO</h1>
+    <p class="sub">Eres un organismo microscópico evolucionando a través de 3 mundos hostiles. Consigue mutaciones, descubre sinergias y llena tus ranuras genéticas. Al morir, tu progreso permanente sobrevive.</p>
+    <button class="bigBtn" id="btnStart">COMENZAR</button>
+    <p class="sub" style="max-width:300px">Arrastra el círculo inferior izquierdo para moverte. El ataque es automático contra enemigos cercanos.</p>
+  </div>
+
+  <div class="overlay hidden" id="screenMutation">
+    <h2>ELIGE UNA MUTACIÓN</h2>
+    <p class="sub" id="slotsWarning"></p>
+    <div id="mutationCards"></div>
+  </div>
+
+  <div class="overlay hidden" id="screenReplace">
+    <h2>RANURAS LLENAS</h2>
+    <p class="sub">Elige qué mutación reemplazar por <span id="newMutName" style="color:var(--teal)"></span>, o cancela.</p>
+    <div id="replaceCards" class="list"></div>
+    <button class="ghostBtn" id="btnCancelReplace">CANCELAR / DESCARTAR NUEVA</button>
+  </div>
+
+  <div class="overlay hidden" id="screenDeath">
+    <h2 id="deathTitle">TU ORGANISMO HA MUERTO</h2>
+    <p class="sub" id="deathSub"></p>
+    <p class="sub" id="dnaEarnedSub" style="color:var(--dna)"></p>
+    <p class="sub">Selecciona UNA característica genética para transmitir a tu siguiente intento:</p>
+    <div id="inheritCards" class="list"></div>
+  </div>
+
+  <div class="overlay hidden" id="screenWorldComplete">
+    <h2 style="color:var(--dna)">EVOLUCIÓN COMPLETA</h2>
+    <p class="sub">Tu organismo ha alcanzado el límite evolutivo de este mundo y ha derrotado a su guardián.</p>
+    <div class="list" id="worldCompleteStats"></div>
+    <p class="sub" id="dnaEarnedSub2" style="color:var(--dna)"></p>
+    <button class="bigBtn" id="btnGoInherit">CONTINUAR</button>
+  </div>
+
+  <div class="overlay hidden" id="screenInherit2">
+    <h2>HERENCIA GENÉTICA</h2>
+    <p class="sub">Selecciona exactamente 2 mutaciones para transmitir al siguiente mundo. El resto permanece desbloqueado para siempre.</p>
+    <div id="inherit2Cards" class="list"></div>
+    <button class="bigBtn hidden" id="btnConfirmInherit2">CONFIRMAR</button>
+  </div>
+
+  <div class="overlay hidden" id="screenWorldMap">
+    <h2>MAPA EVOLUTIVO</h2>
+    <div class="list" id="worldMapList"></div>
+    <button class="ghostBtn" id="btnCloseWorlds">CERRAR</button>
+  </div>
+
+  <div class="overlay hidden" id="screenStats">
+    <h2>ESTADÍSTICAS</h2>
+    <div class="list" id="statsList"></div>
+    <button class="ghostBtn" id="btnCloseStats">CERRAR</button>
+  </div>
+
+  <div class="overlay hidden" id="screenEnc">
+    <h2>ENCICLOPEDIA GENÉTICA</h2>
+    <div class="list" id="encList"></div>
+    <button class="ghostBtn" id="btnCloseEnc">CERRAR</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================================
+   PRIMER LATIDO — v2: sistema de mundos, ranuras genéticas, ADN persistente
+   ========================================================================= */
+
+const rand = (a,b)=> a + Math.random()*(b-a);
+const randInt = (a,b)=> Math.floor(rand(a,b+1));
+const dist = (a,b)=> Math.hypot(a.x-b.x, a.y-b.y);
+const clamp = (v,a,b)=> Math.max(a, Math.min(b,v));
+function pickN(arr,n){
+  const pool=[...arr]; const out=[];
+  while(pool.length && out.length<n){ out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); }
+  return out;
+}
+
+// =========================================================================
+// 1. MUTACIONES  (world: 1/2/3 = mundo donde se desbloquea su pool; hidden = sinergia)
+// =========================================================================
+const MUTATIONS = {
+  // ---- Mundo 1: Océano Primordial ----
+  mandibula:{ name:'Mandíbula', icon:'🦷', category:'ofensiva', world:1, hidden:false,
+    desc:'+30% de daño de ataque.', apply(m){ m.atk*=1.30; } },
+  colmillos:{ name:'Colmillos', icon:'🐍', category:'ofensiva', world:1, hidden:false,
+    desc:'+18% de daño y +10% de probabilidad de crítico.', apply(m){ m.atk*=1.18; m.crit+=0.10; } },
+  garras:{ name:'Garras', icon:'🐾', category:'ofensiva', world:1, hidden:false,
+    desc:'+22% de daño. Los golpes causan sangrado.', apply(m){ m.atk*=1.22; m.bleed+=0.15; } },
+  veneno:{ name:'Veneno', icon:'☠️', category:'ofensiva', world:1, hidden:false,
+    desc:'Tus ataques envenenan al objetivo (acumulable).', apply(m){ m.poison+=1; } },
+  caparazon:{ name:'Caparazón', icon:'🐚', category:'defensiva', world:1, hidden:false,
+    desc:'+30% de defensa.', apply(m){ m.def*=1.30; } },
+  escamas:{ name:'Escamas', icon:'🐟', category:'defensiva', world:1, hidden:false,
+    desc:'+15% de defensa y regeneración leve.', apply(m){ m.def*=1.15; m.regen+=0.4; } },
+  aletas:{ name:'Aletas', icon:'🐠', category:'movilidad', world:1, hidden:false,
+    desc:'+30% de velocidad de desplazamiento.', apply(m){ m.spd*=1.30; } },
+  regeneracion:{ name:'Regeneración', icon:'💠', category:'vital', world:1, hidden:false,
+    desc:'Regenera vida constantemente.', apply(m){ m.regen+=1.0; } },
+  branquias:{ name:'Branquias', icon:'🫧', category:'vital', world:1, hidden:false,
+    desc:'Regeneras energía pasivamente.', apply(m){ m.energyRegen+=0.6; } },
+  reproduccionrapida:{ name:'Reproducción Rápida', icon:'🥚', category:'reproductiva', world:1, hidden:false,
+    desc:'+50% de velocidad de reproducción.', apply(m){ m.repro*=1.50; } },
+
+  // ---- Mundo 2: Mar Volcánico ----
+  aguijon:{ name:'Aguijón', icon:'🦂', category:'ofensiva', world:2, hidden:false,
+    desc:'Ignora 20% de la defensa enemiga.', apply(m){ m.armorPierce+=0.20; } },
+  pielgruesa:{ name:'Piel Gruesa', icon:'🛡️', category:'defensiva', world:2, hidden:false,
+    desc:'+18% de defensa y +15% de vida máxima.', apply(m){ m.def*=1.18; m.hp*=1.15; } },
+  musculos:{ name:'Músculos', icon:'💪', category:'movilidad', world:2, hidden:false,
+    desc:'+18% de velocidad y +10% de daño.', apply(m){ m.spd*=1.18; m.atk*=1.10; } },
+  metabolismo:{ name:'Metabolismo Eficiente', icon:'🔋', category:'vital', world:2, hidden:false,
+    desc:'-30% de consumo de energía.', apply(m){ m.energyEff*=0.70; } },
+  divisioncelular:{ name:'División Celular', icon:'🧫', category:'reproductiva', world:2, hidden:false,
+    desc:'15% de prob. de generar un clon al matar.', apply(m){ m.cloneChance+=0.15; } },
+  instintoasesino:{ name:'Instinto Asesino', icon:'🩸', category:'ofensiva', world:2, hidden:false,
+    desc:'+20% de crítico y +15% de daño.', apply(m){ m.crit+=0.20; m.atk*=1.15; } },
+  simbiosis:{ name:'Simbiosis', icon:'🔗', category:'reproductiva', world:2, hidden:false,
+    desc:'+15% defensa y ligera regeneración.', apply(m){ m.def*=1.15; m.regen+=0.3; } },
+  glandulaacida:{ name:'Glándula Ácida', icon:'🧪', category:'ofensiva', world:2, hidden:false,
+    desc:'Tus ataques corroen: +armorPierce acumulativo por golpe (leve).', apply(m){ m.armorPierce+=0.10; m.acid=true; } },
+  corazaignea:{ name:'Coraza Ígnea', icon:'🔥', category:'defensiva', world:2, hidden:false,
+    desc:'+20% defensa y refleja 15% del daño recibido.', apply(m){ m.def*=1.20; m.reflect+=0.15; } },
+  sangrehirviente:{ name:'Sangre Hirviente', icon:'🌋', category:'vital', world:2, hidden:false,
+    desc:'Al recibir daño, dañas a enemigos cercanos.', apply(m){ m.thorns+=0.5; } },
+
+  // ---- Mundo 3: Era Glacial ----
+  reflejos:{ name:'Reflejos', icon:'👁️', category:'movilidad', world:3, hidden:false,
+    desc:'+15% de probabilidad de esquivar ataques.', apply(m){ m.dodge+=0.15; } },
+  placasoseas:{ name:'Placas Óseas', icon:'🦴', category:'defensiva', world:3, hidden:false,
+    desc:'+35% de defensa, pero -10% de velocidad.', apply(m){ m.def*=1.35; m.spd*=0.90; } },
+  hibernacion:{ name:'Hibernación', icon:'🌙', category:'vital', world:3, hidden:false,
+    desc:'-50% de consumo de energía, pero -15% de velocidad.', apply(m){ m.energyEff*=0.50; m.spd*=0.85; } },
+  sangregelida:{ name:'Sangre Gélida', icon:'❄️', category:'ofensiva', world:3, hidden:false,
+    desc:'Tus ataques ralentizan al enemigo.', apply(m){ m.chill=true; m.atk*=1.05; } },
+  pielaislante:{ name:'Piel Aislante', icon:'🧊', category:'defensiva', world:3, hidden:false,
+    desc:'+22% defensa, inmune a ralentización enemiga.', apply(m){ m.def*=1.22; m.slowImmune=true; } },
+  cristalizacion:{ name:'Cristalización', icon:'💎', category:'defensiva', world:3, hidden:false,
+    desc:'+12% esquiva y +10% crítico (reflejos cristalinos).', apply(m){ m.dodge+=0.12; m.crit+=0.10; } },
+  bioelectricidad:{ name:'Bioelectricidad', icon:'⚡', category:'ofensiva', world:3, hidden:false,
+    desc:'+25% daño y tus ataques encadenan a un enemigo cercano.', apply(m){ m.atk*=1.25; m.chain=true; } },
+
+  // ---- Sinergias ocultas ----
+  depredador:{ name:'Depredador', icon:'🐊', category:'sinergia', hidden:true, parts:['mandibula','colmillos'],
+    desc:'Fusión de Mandíbula + Colmillos. Gran daño y crítico.', apply(m){ m.atk*=1.35; m.crit+=0.10; } },
+  depredadorVenenoso:{ name:'Depredador Venenoso', icon:'🟣', category:'sinergia', hidden:true, parts:['depredador','veneno'],
+    desc:'Depredador + Veneno. El veneno se acumula el doble.', apply(m){ m.atk*=1.15; m.poison+=2; } },
+  infeccion:{ name:'Infección', icon:'🦠', category:'sinergia', hidden:true, parts:['veneno','garras'],
+    desc:'Veneno + Garras. El veneno se propaga a enemigos cercanos.', apply(m){ m.poison+=1; m.poisonSpread=true; } },
+  coloniaInfecciosa:{ name:'Colonia Infecciosa', icon:'🧪', category:'sinergia', hidden:true, parts:['infeccion','reproduccionrapida'],
+    desc:'Infección + Reproducción Rápida. Al matar, esporas dañan y curan.', apply(m){ m.poisonSpread=true; m.sporeBurst=true; m.lifesteal+=0.15; } },
+  fortalezaViviente:{ name:'Fortaleza Viviente', icon:'🏰', category:'sinergia', hidden:true, parts:['caparazon','placasoseas'],
+    desc:'Caparazón + Placas Óseas. Refleja parte del daño recibido.', apply(m){ m.def*=1.30; m.reflect+=0.20; } },
+  enjambreTotal:{ name:'Enjambre Total', icon:'🌐', category:'sinergia', hidden:true, parts:['divisioncelular','reproduccionrapida','simbiosis'],
+    desc:'Tus clones comparten TODAS tus estadísticas.', apply(m){ m.sharedStats=true; m.cloneSpeedMult=2.2; m.repro*=1.6; } },
+  mandibulaPerforante:{ name:'Mandíbula Perforante', icon:'🗡️', category:'sinergia', hidden:true, parts:['mandibula','aguijon'],
+    desc:'Mandíbula + Aguijón. Alto daño que ignora defensa.', apply(m){ m.atk*=1.20; m.armorPierce+=0.25; } },
+  zarpasFeroces:{ name:'Zarpas Feroces', icon:'💥', category:'sinergia', hidden:true, parts:['garras','musculos'],
+    desc:'Garras + Músculos. Sangrado más veloz y letal.', apply(m){ m.atk*=1.15; m.bleed+=0.25; m.spd*=1.05; } },
+  escamaReforzada:{ name:'Escama Reforzada', icon:'🛡️', category:'sinergia', hidden:true, parts:['caparazon','escamas'],
+    desc:'Caparazón + Escamas. Defensa y regeneración sólidas.', apply(m){ m.def*=1.20; m.regen+=0.6; } },
+  plagaCorrosiva:{ name:'Plaga Corrosiva', icon:'🧟', category:'sinergia', hidden:true, parts:['veneno','glandulaacida'],
+    desc:'Veneno + Glándula Ácida. Corroe y envenena sin descanso.', apply(m){ m.poison+=2; m.armorPierce+=0.15; } },
+  cazadorFantasma:{ name:'Cazador Fantasma', icon:'👻', category:'sinergia', hidden:true, parts:['aletas','reflejos'],
+    desc:'Aletas + Reflejos. Velocidad y esquiva sobrenaturales.', apply(m){ m.spd*=1.15; m.dodge+=0.15; } },
+  necrosisGelida:{ name:'Necrosis Gélida', icon:'🥶', category:'sinergia', hidden:true, parts:['sangregelida','veneno'],
+    desc:'Sangre Gélida + Veneno. El veneno también ralentiza.', apply(m){ m.poison+=1; m.chill=true; } },
+  fortalezaMagmatica:{ name:'Fortaleza Magmática', icon:'🌋', category:'sinergia', hidden:true, parts:['corazaignea','caparazon'],
+    desc:'Coraza Ígnea + Caparazón. Reflejo de daño máximo.', apply(m){ m.def*=1.25; m.reflect+=0.20; } },
+  letargoEterno:{ name:'Letargo Eterno', icon:'🌌', category:'sinergia', hidden:true, parts:['hibernacion','metabolismo'],
+    desc:'Hibernación + Metabolismo. Consumo de energía casi nulo.', apply(m){ m.energyEff*=0.35; m.regen+=0.5; } },
+  furiaAncestral:{ name:'Furia Ancestral', icon:'👹', category:'sinergia', hidden:true, parts:['instintoasesino','colmillos'],
+    desc:'Instinto Asesino + Colmillos. Críticos devastadores.', apply(m){ m.crit+=0.20; m.atk*=1.20; } },
+};
+
+const ALL_MUTATION_IDS = Object.keys(MUTATIONS);
+const COMBOS = ALL_MUTATION_IDS.filter(id=>MUTATIONS[id].hidden).map(id=>({parts:MUTATIONS[id].parts, result:id}));
+
+// =========================================================================
+// 2. ENEMIGOS
+// =========================================================================
+const ENEMY_TYPES = {
+  presa:      { name:'Presa pequeña',    hp:9,   atk:0,  def:0,  spd:75,  color:'#8de08d', r:10, behavior:'flee',  food:9,  minTime:0 },
+  depredador: { name:'Depredador',       hp:24,  atk:6,  def:2,  spd:95,  color:'#ff8a5c', r:13, behavior:'chase', food:14, minTime:25 },
+  venenoso:   { name:'Enemigo venenoso', hp:17,  atk:3,  def:1,  spd:80,  color:'#b06cff', r:12, behavior:'chase', food:12, minTime:75, poisons:true },
+  rapido:     { name:'Enemigo rápido',   hp:13,  atk:4,  def:0,  spd:175, color:'#5cd9ff', r:10, behavior:'chase', food:10, minTime:60 },
+  blindado:   { name:'Enemigo blindado', hp:65,  atk:5,  def:22, spd:48,  color:'#a8a8a8', r:16, behavior:'chase', food:20, minTime:120 },
+  jefe:       { name:'Jefe Primigenio',  hp:420, atk:14, def:16, spd:58,  color:'#ff2d6b', r:30, behavior:'chase', food:120, boss:true },
+
+  lava_slug:  { name:'Babosa de Lava',   hp:45,  atk:8,  def:8,  spd:40,  color:'#ff5a2e', r:15, behavior:'chase', food:16, minTime:0 },
+  obsidiana:  { name:'Guardia Obsidiana',hp:80,  atk:9,  def:28, spd:44,  color:'#4a4a55', r:17, behavior:'chase', food:22, minTime:40 },
+  swarm_imp:  { name:'Imp del Enjambre', hp:15,  atk:5,  def:1,  spd:150, color:'#ff9a3d', r:9,  behavior:'chase', food:11, minTime:20 },
+  spitter:    { name:'Escupidor Ácido',  hp:22,  atk:6,  def:2,  spd:70,  color:'#c6ff3d', r:12, behavior:'chase', food:14, minTime:60, poisons:true },
+  jefeVolcanico: { name:'Señor del Magma', hp:650, atk:18, def:24, spd:52, color:'#ff3300', r:32, behavior:'chase', food:220, boss:true },
+
+  ice_crawler:{ name:'Rastreador de Hielo', hp:30, atk:6,  def:10, spd:55,  color:'#a9e8ff', r:13, behavior:'chase', food:15, minTime:0 },
+  frost_bat:  { name:'Murciélago Helado', hp:16,  atk:5,  def:1,  spd:190, color:'#dff6ff', r:9,  behavior:'chase', food:12, minTime:15, slows:true },
+  glacier_golem:{ name:'Gólem Glaciar',  hp:130, atk:12, def:34, spd:35,  color:'#7fb8d6', r:20, behavior:'chase', food:28, minTime:50 },
+  wisp_freeze:{ name:'Espíritu Gélido',  hp:20,  atk:4,  def:2,  spd:90,  color:'#c9f7ff', r:10, behavior:'chase', food:13, minTime:35, slows:true },
+  jefeGlacial:{ name:'Reina del Hielo',  hp:900, atk:20, def:30, spd:50,  color:'#8fdcff', r:34, behavior:'chase', food:320, boss:true },
+};
+
+// =========================================================================
+// 3. MUNDOS
+// =========================================================================
+const WORLDS = {
+  1:{ id:1, name:'Océano Primordial', icon:'🌊', bg:'#020506', grid:'rgba(61,218,208,0.05)', border:'rgba(61,218,208,0.35)',
+      enemies:['presa','depredador','venenoso','rapido','blindado'], boss:'jefe', bossAt:250,
+      mutationPool:['mandibula','colmillos','garras','veneno','caparazon','escamas','aletas','regeneracion','branquias','reproduccionrapida'],
+      dnaRange:[100,300] },
+  2:{ id:2, name:'Mar Volcánico', icon:'🌋', bg:'#0a0503', grid:'rgba(255,90,46,0.06)', border:'rgba(255,90,46,0.4)',
+      enemies:['presa','lava_slug','obsidiana','swarm_imp','spitter'], boss:'jefeVolcanico', bossAt:260,
+      mutationPool:['aguijon','pielgruesa','musculos','metabolismo','divisioncelular','instintoasesino','simbiosis','glandulaacida','corazaignea','sangrehirviente'],
+      dnaRange:[300,600] },
+  3:{ id:3, name:'Era Glacial', icon:'❄️', bg:'#03070a', grid:'rgba(143,220,255,0.07)', border:'rgba(143,220,255,0.4)',
+      enemies:['presa','ice_crawler','frost_bat','glacier_golem','wisp_freeze'], boss:'jefeGlacial', bossAt:270,
+      mutationPool:['reflejos','placasoseas','hibernacion','sangregelida','pielaislante','cristalizacion','bioelectricidad'],
+      dnaRange:[600,1200] },
+};
+const WORLD_ORDER = [1,2,3];
+
+// =========================================================================
+// 4. PROGRESO PERSISTENTE (localStorage)
+// =========================================================================
+const SAVE_KEY = 'primerLatido_save_v2';
+function defaultSession(){
+  return {
+    generation:1,
+    currentWorld:1,
+    unlockedWorlds:[1],
+    completedWorlds:[],
+    unlockedMutations: [...WORLDS[1].mutationPool],
+    discoveredCombos: [],
+    dna:0,
+    inheritSingle:null,   // 1 mutación heredada tras muerte normal
+    inheritDouble:null,   // 2 mutaciones heredadas al completar un mundo
+    stats:{ totalKills:0, totalDeaths:0, bestTime:0 },
+  };
+}
+let session = loadSession();
+function loadSession(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return defaultSession();
+    const s = JSON.parse(raw);
+    const base = defaultSession();
+    return Object.assign(base, s);
+  }catch(e){ return defaultSession(); }
+}
+function saveSession(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(session)); }catch(e){}
+}
+function isUnlocked(id){ return session.unlockedMutations.includes(id); }
+function unlockMutation(id){ if(!isUnlocked(id)){ session.unlockedMutations.push(id); } }
+function getMaxSlots(){ return clamp(2 + session.generation, 3, 10); }
+
+// =========================================================================
+// 5. ESTADO DE PARTIDA
+// =========================================================================
+const BASE_STATS = { hp:28, atk:5, def:2, spd:88, energyDrain:1.6, maxEnergy:100, maxFood:100 };
+const WORLD_SIZE = { w:2400, h:2400 };
+let run = null;
+
+function freshPlayer(){
+  return {
+    x: WORLD_SIZE.w/2, y: WORLD_SIZE.h/2, r:14,
+    hp:10, maxHp:10, atk:1, def:1, spd:88,
+    dodge:0, crit:0.05, armorPierce:0, bleed:0, poison:0, poisonSpread:false,
+    sporeBurst:false, lifesteal:0, reflect:0, sharedStats:false, thorns:0,
+    chill:false, chain:false, slowImmune:false, acid:false,
+    cloneChance:0, cloneSpeedMult:1,
+    energy:100, maxEnergy:100, energyEff:1, energyRegen:0,
+    food:0, maxFood:100, repro:1,
+    regen:0, atkCooldown:0, slowTimer:0,
+  };
+}
+
+function startRun(worldId){
+  const world = WORLDS[worldId];
+  session.currentWorld = worldId;
+  let startMutations = [];
+  if(session.inheritDouble && session.inheritDouble.length){
+    startMutations = session.inheritDouble.slice(0,2);
+    session.inheritDouble = null;
+  } else if(session.inheritSingle){
+    startMutations = [session.inheritSingle];
+    session.inheritSingle = null;
+  }
+  run = {
+    world, time:0, running:true, paused:false, ended:false,
+    level:1, killCount:0,
+    mutations: startMutations.filter(id=>MUTATIONS[id]),
+    clones: [], enemies: [], pellets: [],
+    spawnTimer:2.2, ambientFoodTimer:3,
+    nextMutationAt: 14,
+    bossSpawned:false, bossDefeated:false,
+    joy:{x:0,y:0,active:false}, cam:{x:0,y:0},
+    player: freshPlayer(),
+  };
+  recalcStats();
+  run.player.hp = run.player.maxHp;
+  run.player.energy = run.player.maxEnergy;
+  saveSession();
+  hideAllOverlays();
+  updateWorldHud();
+  refreshSlotsRow();
+  document.getElementById('bossHpWrap').classList.remove('show');
+}
+
+// =========================================================================
+// 6. MUTACIONES / SINERGIAS
+// =========================================================================
+function recalcStats(){
+  const p = run.player;
+  const m = { hp:1, atk:1, def:1, spd:1, dodge:0, crit:0.05, armorPierce:0,
+              bleed:0, poison:0, poisonSpread:false, sporeBurst:false, lifesteal:0,
+              reflect:0, sharedStats:false, thorns:0, chill:false, chain:false,
+              slowImmune:false, acid:false, cloneChance:0, cloneSpeedMult:1,
+              energyEff:1, energyRegen:0, repro:1, regen:0 };
+  run.mutations.forEach(id=>{ const mu = MUTATIONS[id]; if(mu) mu.apply(m); });
+
+  const lvlMult = 1 + (run.level-1)*0.12;
+  const genMult = 1 + (session.generation-1)*0.03;
+
+  p.maxHp = Math.round(BASE_STATS.hp * m.hp * lvlMult * genMult);
+  p.atk   = +(BASE_STATS.atk * m.atk * lvlMult * genMult).toFixed(1);
+  p.def   = +(BASE_STATS.def * m.def * lvlMult).toFixed(1);
+  p.spd   = BASE_STATS.spd * m.spd;
+  Object.assign(p, {
+    dodge:clamp(m.dodge,0,0.6), crit:clamp(m.crit,0,0.75), armorPierce:clamp(m.armorPierce,0,0.7),
+    bleed:m.bleed, poison:m.poison, poisonSpread:m.poisonSpread, sporeBurst:m.sporeBurst,
+    lifesteal:m.lifesteal, reflect:m.reflect, sharedStats:m.sharedStats, thorns:m.thorns,
+    chill:m.chill, chain:m.chain, slowImmune:m.slowImmune, acid:m.acid,
+    cloneChance:m.cloneChance, cloneSpeedMult:m.cloneSpeedMult,
+    energyEff:m.energyEff, energyRegen:m.energyRegen, repro:m.repro, regen:m.regen,
+  });
+  p.maxEnergy = BASE_STATS.maxEnergy;
+  p.maxFood = BASE_STATS.maxFood;
+  p.hp = Math.min(p.hp || p.maxHp, p.maxHp);
+}
+
+function checkSynergies(){
+  let found = false;
+  COMBOS.forEach(combo=>{
+    if(run.mutations.includes(combo.result)) return;
+    const has = combo.parts.every(id=>run.mutations.includes(id));
+    if(has){
+      // fusiona: quita las partes, agrega el resultado (libera ranuras)
+      combo.parts.forEach(id=>{
+        const i = run.mutations.indexOf(id);
+        if(i>=0) run.mutations.splice(i,1);
+      });
+      run.mutations.push(combo.result);
+      if(!session.discoveredCombos.includes(combo.result)) session.discoveredCombos.push(combo.result);
+      unlockMutation(combo.result);
+      found = true;
+      notify('⚠ SINERGIA DESCUBIERTA: ' + MUTATIONS[combo.result].icon + ' ' + MUTATIONS[combo.result].name.toUpperCase(), true);
+    }
+  });
+  if(found){ recalcStats(); refreshSlotsRow(); saveSession(); checkSynergies(); }
+}
+
+function offerMutations(){
+  run.paused = true;
+  const owned = new Set(run.mutations);
+  let pool = session.unlockedMutations.filter(id=>!owned.has(id) && !MUTATIONS[id].hidden);
+  if(pool.length < 3) pool = ALL_MUTATION_IDS.filter(id=>!MUTATIONS[id].hidden && !owned.has(id));
+  if(pool.length === 0) pool = ALL_MUTATION_IDS.filter(id=>!MUTATIONS[id].hidden);
+  const options = pickN(pool, Math.min(3,pool.length));
+  const wrap = document.getElementById('mutationCards');
+  wrap.innerHTML = '';
+  document.getElementById('slotsWarning').textContent =
+    run.mutations.length >= getMaxSlots() ? 'Tus ranuras genéticas están llenas ('+getMaxSlots()+'/'+getMaxSlots()+'). Elegir aquí te pedirá reemplazar una mutación.' : '';
+  options.forEach(id=>{
+    const mu = MUTATIONS[id];
+    const card = document.createElement('div');
+    card.className='card';
+    card.innerHTML = `<div class="cName"><span>${mu.icon} ${mu.name}</span></div>
+                       <div class="cCat">${mu.category} · Mundo ${mu.world||'?'}</div>
+                       <div class="cDesc">${mu.desc}</div>`;
+    card.onclick = ()=>{ tryAddMutation(id); };
+    wrap.appendChild(card);
+  });
+  document.getElementById('screenMutation').classList.remove('hidden');
+}
+
+function tryAddMutation(id){
+  document.getElementById('screenMutation').classList.add('hidden');
+  if(run.mutations.length < getMaxSlots()){
+    addMutationDirect(id);
+  } else {
+    showReplaceScreen(id);
+  }
+}
+
+function addMutationDirect(id){
+  run.mutations.push(id);
+  unlockMutation(id);
+  recalcStats();
+  checkSynergies();
+  refreshSlotsRow();
+  saveSession();
+  run.paused = false;
+  run.nextMutationAt = run.time + rand(18,24);
+}
+
+function showReplaceScreen(newId){
+  document.getElementById('newMutName').textContent = MUTATIONS[newId].icon+' '+MUTATIONS[newId].name;
+  const wrap = document.getElementById('replaceCards');
+  wrap.innerHTML = '';
+  run.mutations.forEach(oldId=>{
+    const mu = MUTATIONS[oldId];
+    const card = document.createElement('div');
+    card.className='card';
+    card.innerHTML = `<div class="cName">${mu.icon} ${mu.name}</div><div class="cDesc">${mu.desc}</div>`;
+    card.onclick = ()=>{
+      const i = run.mutations.indexOf(oldId);
+      if(i>=0) run.mutations.splice(i,1);
+      addMutationDirect(newId);
+      document.getElementById('screenReplace').classList.add('hidden');
+    };
+    wrap.appendChild(card);
+  });
+  document.getElementById('btnCancelReplace').onclick = ()=>{
+    document.getElementById('screenReplace').classList.add('hidden');
+    run.paused = false;
+    run.nextMutationAt = run.time + rand(18,24);
+  };
+  document.getElementById('screenReplace').classList.remove('hidden');
+}
+
+function refreshSlotsRow(){
+  const row = document.getElementById('slotsRow');
+  row.innerHTML = '';
+  const max = getMaxSlots();
+  for(let i=0;i<max;i++){
+    const id = run.mutations[i];
+    const div = document.createElement('div');
+    if(id){
+      const mu = MUTATIONS[id];
+      div.className = 'slot' + (mu.hidden ? ' combo':'');
+      div.textContent = mu.icon;
+      div.title = mu.name;
+    } else {
+      div.className = 'slot empty';
+      div.textContent = '';
+    }
+    row.appendChild(div);
+  }
+}
+
+function notify(msg, isSynergy, isDna){
+  const layer = document.getElementById('notifyLayer');
+  const el = document.createElement('div');
+  el.className = 'notify' + (isSynergy?' synergy':'') + (isDna?' dna':'');
+  el.textContent = msg;
+  layer.appendChild(el);
+  setTimeout(()=>el.remove(), 3300);
+}
+
+function updateWorldHud(){
+  document.getElementById('worldTag').textContent = run.world.icon+' MUNDO '+run.world.id;
+  document.getElementById('genTag').textContent = 'GEN. ' + session.generation;
+  document.getElementById('dnaTag').textContent = '🧬 ' + Math.floor(session.dna);
+}
+
+// =========================================================================
+// 7. SPAWNS
+// =========================================================================
+function weightedEnemyType(){
+  const t = run.time; const w = run.world;
+  const candidates = w.enemies.filter(id=>{
+    const et = ENEMY_TYPES[id];
+    return t >= (et.minTime||0);
+  });
+  if(candidates.length===0) return w.enemies[0];
+  // primer tipo (usualmente presa) tiene más peso
+  const weights = candidates.map((id,i)=> i===0?10:5);
+  const total = weights.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total;
+  for(let i=0;i<candidates.length;i++){ r-=weights[i]; if(r<=0) return candidates[i]; }
+  return candidates[0];
+}
+
+function spawnEnemy(typeId, forcedPos){
+  const t = ENEMY_TYPES[typeId];
+  const scale = 1 + run.time/180;
+  let pos = forcedPos;
+  if(!pos){
+    const ang = Math.random()*Math.PI*2;
+    const rad = rand(420,600);
+    pos = { x: clamp(run.player.x + Math.cos(ang)*rad, 20, WORLD_SIZE.w-20),
+            y: clamp(run.player.y + Math.sin(ang)*rad, 20, WORLD_SIZE.h-20) };
+  }
+  run.enemies.push({
+    type:typeId, name:t.name, color:t.color, r:t.r, behavior:t.behavior,
+    boss: !!t.boss, poisons: !!t.poisons, slows: !!t.slows,
+    x:pos.x, y:pos.y,
+    hp: t.hp*scale, maxHp: t.hp*scale,
+    atk: t.atk*(1+scale*0.22), def: t.def*scale*0.5,
+    spd: t.spd, food: t.food,
+    atkCd:0, poisonStacks:0,
+  });
+}
+
+function updateSpawns(dt){
+  if(run.bossSpawned && !run.bossDefeated) return;
+  run.spawnTimer -= dt;
+  if(run.spawnTimer<=0){
+    const interval = clamp(3.2 - run.time/140, 0.9, 3.2);
+    run.spawnTimer = interval;
+    const count = run.time>150 ? randInt(1,3) : (run.time>60?randInt(1,2):1);
+    for(let i=0;i<count;i++) spawnEnemy(weightedEnemyType());
+  }
+  if(!run.bossSpawned && run.time>=run.world.bossAt){
+    run.bossSpawned = true;
+    spawnEnemy(run.world.boss);
+    const b = document.getElementById('bossBanner');
+    b.textContent = '⚠ '+ENEMY_TYPES[run.world.boss].name.toUpperCase()+' HA DESPERTADO ⚠';
+    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+  }
+}
+
+// =========================================================================
+// 8. COMBATE
+// =========================================================================
+function dealDamage(attackerStats, target){
+  let dmg = attackerStats.atk;
+  const effDef = Math.max(0, target.def * (1-(attackerStats.armorPierce||0)));
+  dmg = dmg * (100/(100+effDef));
+  const isCrit = Math.random() < (attackerStats.crit||0);
+  if(isCrit) dmg *= 1.8;
+  dmg = Math.max(1, dmg);
+  target.hp -= dmg;
+  if(attackerStats.poison>0){ target.poisonStacks = (target.poisonStacks||0) + attackerStats.poison; }
+  if(attackerStats.chill && !target.chillImmune){ target.slowTimer = 2.2; }
+  if(attackerStats.lifesteal>0){ run.player.hp = Math.min(run.player.maxHp, run.player.hp + dmg*attackerStats.lifesteal); }
+  if(attackerStats.chain){
+    const other = run.enemies.find(e=>e!==target && dist(e,target)<130);
+    if(other){ other.hp -= dmg*0.4; }
+  }
+  return {dmg,isCrit};
+}
+
+function enemyHitsPlayer(enemy, targetEntity, isPlayer){
+  const dodge = isPlayer ? run.player.dodge : 0.05;
+  if(Math.random() < dodge) return;
+  const def = isPlayer ? run.player.def : run.player.def*0.6;
+  let dmg = enemy.atk * (100/(100+def));
+  dmg = Math.max(1, dmg);
+  targetEntity.hp -= dmg;
+  if(isPlayer && run.player.reflect>0){ enemy.hp -= dmg*run.player.reflect; }
+  if(isPlayer && run.player.thorns>0){
+    run.enemies.forEach(e=>{ if(dist(e,run.player)<100) e.hp -= run.player.thorns*4; });
+  }
+  if(isPlayer && enemy.slows && !run.player.slowImmune){ run.player.slowTimer = 1.6; }
+}
+
+function killEnemy(enemy){
+  run.killCount++;
+  session.stats.totalKills++;
+  run.pellets.push({x:enemy.x, y:enemy.y, food:enemy.food});
+  if(enemy.boss){
+    run.bossDefeated = true;
+    notify('¡HAS DERROTADO A '+enemy.name.toUpperCase()+'!', true);
+    document.getElementById('bossHpWrap').classList.remove('show');
+    setTimeout(checkWorldCompletion, 600);
+  }
+  if(run.player.sporeBurst){
+    run.enemies.forEach(e=>{
+      if(e!==enemy && dist(e,enemy) < 110){ e.hp -= run.player.atk*0.6; e.poisonStacks=(e.poisonStacks||0)+1; }
+    });
+  }
+  if(Math.random() < run.player.cloneChance) spawnClone(enemy.x, enemy.y);
+  if(run.killCount % 6 === 0){ run.level++; recalcStats(); notify('Nivel evolutivo '+run.level, false); }
+}
+
+function spawnClone(x,y){
+  if(run.clones.length>=6) return;
+  run.clones.push({ x: x!==undefined?x:run.player.x+rand(-30,30), y: y!==undefined?y:run.player.y+rand(-30,30),
+                     r:9, hp: run.player.maxHp*0.5, maxHp: run.player.maxHp*0.5, atkCd:0 });
+}
+
+// =========================================================================
+// 9. MUNDO COMPLETADO
+// =========================================================================
+function checkWorldCompletion(){
+  if(!run || run.ended) return;
+  if(run.bossDefeated && run.mutations.length >= getMaxSlots()){
+    run.running = false; run.ended = true; run.paused = true;
+    const world = run.world;
+    if(!session.completedWorlds.includes(world.id)) session.completedWorlds.push(world.id);
+    const nextId = WORLD_ORDER[WORLD_ORDER.indexOf(world.id)+1];
+    if(nextId && !session.unlockedWorlds.includes(nextId)){
+      session.unlockedWorlds.push(nextId);
+      WORLDS[nextId].mutationPool.forEach(unlockMutation);
+    }
+    const dnaEarned = Math.round(rand(world.dnaRange[0], world.dnaRange[1]) + run.killCount*2 + session.discoveredCombos.length*15);
+    session.dna += dnaEarned;
+    saveSession();
+
+    const list = document.getElementById('worldCompleteStats');
+    list.innerHTML = [
+      ['Mundo', world.icon+' '+world.name],
+      ['Tiempo', Math.floor(run.time)+'s'],
+      ['Enemigos derrotados', run.killCount],
+      ['Sinergias activas', run.mutations.filter(id=>MUTATIONS[id].hidden).length],
+      ['Nivel evolutivo', run.level],
+    ].map(r=>`<div class="statRow"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+    document.getElementById('dnaEarnedSub2').textContent = '+ '+dnaEarned+' 🧬 ADN obtenido';
+    document.getElementById('screenWorldComplete').classList.remove('hidden');
+  }
+}
+
+let inherit2Selected = [];
+document.getElementById('btnGoInherit').onclick = ()=>{
+  document.getElementById('screenWorldComplete').classList.add('hidden');
+  const nextId = WORLD_ORDER[WORLD_ORDER.indexOf(run.world.id)+1];
+  if(!nextId){
+    // ya completó el último mundo: reinicia ciclo en mundo 1 conservando progreso
+    session.inheritDouble = null;
+    session.generation++;
+    startRun(1);
+    notify('Has completado todos los mundos disponibles. ¡Nueva vuelta evolutiva!', true);
+    return;
+  }
+  inherit2Selected = [];
+  const wrap = document.getElementById('inherit2Cards');
+  wrap.innerHTML = '';
+  run.mutations.forEach(id=>{
+    const mu = MUTATIONS[id];
+    const card = document.createElement('div');
+    card.className='card';
+    card.innerHTML = `<div class="cName">${mu.icon} ${mu.name}</div><div class="cDesc">${mu.desc}</div>`;
+    card.onclick = ()=>{
+      const idx = inherit2Selected.indexOf(id);
+      if(idx>=0){ inherit2Selected.splice(idx,1); card.classList.remove('selected'); }
+      else if(inherit2Selected.length<2){ inherit2Selected.push(id); card.classList.add('selected'); }
+      document.getElementById('btnConfirmInherit2').classList.toggle('hidden', inherit2Selected.length!==2);
+    };
+    wrap.appendChild(card);
+  });
+  document.getElementById('btnConfirmInherit2').classList.add('hidden');
+  document.getElementById('btnConfirmInherit2').onclick = ()=>{
+    session.inheritDouble = inherit2Selected.slice();
+    session.generation++;
+    startRun(nextId);
+  };
+  document.getElementById('screenInherit2').classList.remove('hidden');
+};
+
+// =========================================================================
+// 10. BUCLE PRINCIPAL
+// =========================================================================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+function resizeCanvas(){
+  const wrap = document.getElementById('canvasWrap');
+  canvas.width = wrap.clientWidth * devicePixelRatio;
+  canvas.height = wrap.clientHeight * devicePixelRatio;
+  canvas.style.width = wrap.clientWidth+'px';
+  canvas.style.height = wrap.clientHeight+'px';
+}
+window.addEventListener('resize', resizeCanvas);
+
+let lastT = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now-lastT)/1000);
+  lastT = now;
+  if(run && run.running && !run.paused && !run.ended) update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  const p = run.player;
+  run.time += dt;
+
+  const jx = run.joy.x, jy = run.joy.y;
+  const mag = Math.hypot(jx,jy);
+  const slowMult = p.slowTimer>0 ? 0.55 : 1;
+  if(p.slowTimer>0) p.slowTimer -= dt;
+  if(mag>0.05){
+    p.x = clamp(p.x + (jx/mag)*p.spd*slowMult*dt, p.r, WORLD_SIZE.w-p.r);
+    p.y = clamp(p.y + (jy/mag)*p.spd*slowMult*dt, p.r, WORLD_SIZE.h-p.r);
+  }
+
+  if(mag>0.05){ p.energy -= BASE_STATS.energyDrain*p.energyEff*dt; }
+  p.energy += p.energyRegen*dt;
+  p.energy = clamp(p.energy,0,p.maxEnergy);
+  if(p.energy<=0){ p.hp -= 1.5*dt; }
+
+  if(p.regen>0) p.hp = Math.min(p.maxHp, p.hp + p.regen*dt);
+
+  for(let i=run.pellets.length-1;i>=0;i--){
+    const pel = run.pellets[i];
+    if(dist(pel,p) < p.r+10){
+      p.energy = Math.min(p.maxEnergy, p.energy + pel.food*1.1);
+      p.food = Math.min(p.maxFood, p.food + pel.food*0.6);
+      run.pellets.splice(i,1);
+    }
+  }
+
+  run.ambientFoodTimer -= dt;
+  if(run.ambientFoodTimer<=0 && run.pellets.length<10){
+    run.ambientFoodTimer = rand(4,7);
+    const ang = Math.random()*Math.PI*2, rad = rand(80,320);
+    run.pellets.push({
+      x: clamp(p.x+Math.cos(ang)*rad,10,WORLD_SIZE.w-10),
+      y: clamp(p.y+Math.sin(ang)*rad,10,WORLD_SIZE.h-10),
+      food: rand(6,10)
+    });
+  }
+
+  if(p.food >= p.maxFood){
+    p.food = 0;
+    spawnClone();
+    notify('Reproducción: nueva unidad generada', false);
+  }
+
+  run.clones.forEach(c=>{
+    if(p.sharedStats){ c.maxHp = p.maxHp*0.9; c.hp = Math.min(c.hp, c.maxHp); }
+    const target = nearestEnemy(c, 260);
+    if(target){
+      const d = dist(c,target);
+      if(d>36){ const dx=(target.x-c.x)/d, dy=(target.y-c.y)/d; c.x+=dx*p.spd*0.9*dt; c.y+=dy*p.spd*0.9*dt; }
+      c.atkCd -= dt;
+      if(d<=44 && c.atkCd<=0){
+        const atkStats = p.sharedStats ? p : {atk:p.atk*0.5, crit:p.crit, armorPierce:p.armorPierce, poison:p.poison*0.5, lifesteal:0};
+        dealDamage(atkStats, target);
+        c.atkCd = 0.9;
+        if(target.hp<=0){ removeEnemy(target); }
+      }
+    } else {
+      const d = dist(c,p);
+      if(d>70){ const dx=(p.x-c.x)/d, dy=(p.y-c.y)/d; c.x+=dx*p.spd*dt; c.y+=dy*p.spd*dt; }
+    }
+  });
+  run.clones = run.clones.filter(c=>c.hp>0);
+
+  updateSpawns(dt);
+  p.atkCooldown -= dt;
+  run.enemies.forEach(e=>{
+    e.atkCd -= dt;
+    if(e.poisonStacks>0){ e.hp -= e.poisonStacks*1.2*dt; }
+    if(p.bleed>0 && e.bled){ e.hp -= p.bleed*8*dt; }
+    const eSlowMult = e.slowTimer>0 ? 0.5 : 1;
+    if(e.slowTimer>0) e.slowTimer -= dt;
+
+    if(e.behavior==='flee'){
+      const d = dist(e,p);
+      if(d<160){ const dx=(e.x-p.x)/d, dy=(e.y-p.y)/d; e.x+=dx*e.spd*eSlowMult*dt; e.y+=dy*e.spd*eSlowMult*dt; }
+    } else {
+      let target = p, best = dist(e,p);
+      run.clones.forEach(c=>{ const d=dist(e,c); if(d<best){best=d; target=c;} });
+      const d = dist(e,target);
+      if(d>e.r+ (target===p?p.r:target.r) ){
+        const dx=(target.x-e.x)/d, dy=(target.y-e.y)/d;
+        e.x+=dx*e.spd*eSlowMult*dt; e.y+=dy*e.spd*eSlowMult*dt;
+      } else if(e.atkCd<=0){
+        e.atkCd = 1.0;
+        enemyHitsPlayer(e, target, target===p);
+        if(e.poisons && target===p){ p.poisonedByEnemy = 3; }
+      }
+    }
+    e.x = clamp(e.x,10,WORLD_SIZE.w-10); e.y = clamp(e.y,10,WORLD_SIZE.h-10);
+
+    if(dist(e,p) <= p.r+e.r+56 && p.atkCooldown<=0){
+      dealDamage(p, e);
+      e.bled = p.bleed>0;
+      p.atkCooldown = 0.85;
+    }
+  });
+
+  for(let i=run.enemies.length-1;i>=0;i--){
+    if(run.enemies[i].hp<=0){ killEnemy(run.enemies[i]); run.enemies.splice(i,1); }
+  }
+
+  run.cam.x = clamp(p.x - canvas.width/(2*devicePixelRatio), 0, WORLD_SIZE.w-canvas.width/devicePixelRatio);
+  run.cam.y = clamp(p.y - canvas.height/(2*devicePixelRatio), 0, WORLD_SIZE.h-canvas.height/devicePixelRatio);
+
+  if(run.time >= run.nextMutationAt && run.mutations.length < ALL_MUTATION_IDS.filter(id=>!MUTATIONS[id].hidden).length){ offerMutations(); }
+
+  if(p.hp<=0){ triggerDeath(); }
+
+  updateHudBars();
+}
+
+function removeEnemy(e){
+  const i = run.enemies.indexOf(e);
+  if(i>=0){ killEnemy(e); run.enemies.splice(i,1); }
+}
+function nearestEnemy(from, maxDist){
+  let best=null, bestD=maxDist;
+  run.enemies.forEach(e=>{ const d=dist(from,e); if(d<bestD){bestD=d; best=e;} });
+  return best;
+}
+
+// ---------- Render ----------
+function render(){
+  if(!run) return;
+  ctx.save();
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  const w = canvas.width/devicePixelRatio, h = canvas.height/devicePixelRatio;
+  ctx.fillStyle = run.world.bg;
+  ctx.fillRect(0,0,w,h);
+  ctx.translate(-run.cam.x, -run.cam.y);
+
+  ctx.strokeStyle = run.world.grid;
+  ctx.lineWidth = 1;
+  const grid = 60;
+  const startX = Math.floor(run.cam.x/grid)*grid;
+  const startY = Math.floor(run.cam.y/grid)*grid;
+  for(let x=startX; x<run.cam.x+w+grid; x+=grid){ ctx.beginPath(); ctx.moveTo(x,run.cam.y); ctx.lineTo(x,run.cam.y+h); ctx.stroke(); }
+  for(let y=startY; y<run.cam.y+h+grid; y+=grid){ ctx.beginPath(); ctx.moveTo(run.cam.x,y); ctx.lineTo(run.cam.x+w,y); ctx.stroke(); }
+
+  ctx.strokeStyle = run.world.border;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(0,0,WORLD_SIZE.w,WORLD_SIZE.h);
+
+  run.pellets.forEach(pel=>{
+    ctx.beginPath(); ctx.fillStyle = '#ffb454';
+    ctx.arc(pel.x, pel.y, 5, 0, 7); ctx.fill();
+  });
+
+  run.clones.forEach(c=>{
+    drawCreature(c.x,c.y,10,'#7fe9e2',0.7);
+    drawHpBar(c.x,c.y-20,c.hp,c.maxHp,20);
+  });
+
+  let bossRef = null;
+  run.enemies.forEach(e=>{
+    ctx.beginPath();
+    ctx.fillStyle = e.color;
+    ctx.arc(e.x,e.y,e.r,0,7); ctx.fill();
+    if(e.boss){ ctx.lineWidth=3; ctx.strokeStyle='#fff'; ctx.stroke(); bossRef=e; }
+    if(e.poisonStacks>0){ ctx.beginPath(); ctx.strokeStyle='#b06cff'; ctx.lineWidth=2; ctx.arc(e.x,e.y,e.r+4,0,7); ctx.stroke(); }
+    if(!e.boss) drawHpBar(e.x,e.y-e.r-10,e.hp,e.maxHp, 26);
+  });
+
+  drawCreature(run.player.x, run.player.y, run.player.r, playerColor(), 1);
+
+  ctx.restore();
+
+  const bossWrap = document.getElementById('bossHpWrap');
+  if(bossRef){
+    bossWrap.classList.add('show');
+    document.getElementById('bossHpLabel').textContent = bossRef.name+'  '+Math.max(0,Math.ceil(bossRef.hp))+' / '+Math.ceil(bossRef.maxHp);
+    document.getElementById('barBoss').style.width = clamp(bossRef.hp/bossRef.maxHp*100,0,100)+'%';
+  } else {
+    bossWrap.classList.remove('show');
+  }
+}
+
+function playerColor(){
+  const n = run.mutations.length;
+  if(n===0) return '#3ddad0';
+  const hasCombo = run.mutations.some(id=>MUTATIONS[id].hidden);
+  return hasCombo ? '#b06cff' : '#3ddad0';
+}
+function drawCreature(x,y,r,color,alpha){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath(); ctx.fillStyle = color; ctx.arc(x,y,r,0,7); ctx.fill();
+  ctx.fillStyle = '#04141a';
+  ctx.beginPath(); ctx.arc(x-r*0.35,y-r*0.2,r*0.18,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+r*0.35,y-r*0.2,r*0.18,0,7); ctx.fill();
+  ctx.restore();
+}
+function drawHpBar(x,y,hp,maxHp,width){
+  const pct = clamp(hp/maxHp,0,1);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(x-width/2,y,width,4);
+  ctx.fillStyle = pct>0.5 ? '#3ddad0' : (pct>0.2?'#ffb454':'#ff4d6d');
+  ctx.fillRect(x-width/2,y,width*pct,4);
+}
+function updateHudBars(){
+  const p = run.player;
+  document.getElementById('barHp').style.width = clamp(p.hp/p.maxHp*100,0,100)+'%';
+  document.getElementById('barEnergy').style.width = clamp(p.energy/p.maxEnergy*100,0,100)+'%';
+  document.getElementById('barFood').style.width = clamp(p.food/p.maxFood*100,0,100)+'%';
+  const mm = Math.floor(run.time/60), ss = Math.floor(run.time%60);
+  document.getElementById('timeTag').textContent = (mm<10?'0':'')+mm+':'+(ss<10?'0':'')+ss;
+  document.getElementById('dnaTag').textContent = '🧬 ' + Math.floor(session.dna);
+}
+
+// =========================================================================
+// 11. MUERTE (normal, sin completar mundo)
+// =========================================================================
+function triggerDeath(){
+  run.running = false; run.ended = true;
+  session.stats.totalDeaths++;
+  const dnaEarned = Math.round(run.time*0.6 + run.killCount*1.5);
+  session.dna += dnaEarned;
+  session.generation = clamp(session.generation+1, 1, 999);
+  saveSession();
+
+  document.getElementById('deathTitle').textContent = 'GENERACIÓN ' + (session.generation-1) + ' — EXTINTA';
+  document.getElementById('deathSub').textContent =
+    'Tu organismo sobrevivió ' + Math.floor(run.time) + ' segundos en ' + run.world.name + ', alcanzó el nivel ' +
+    run.level + ' con ' + run.mutations.length + ' mutaciones.';
+  document.getElementById('dnaEarnedSub').textContent = '+ '+dnaEarned+' 🧬 ADN obtenido';
+
+  const wrap = document.getElementById('inheritCards');
+  wrap.innerHTML = '';
+  const candidates = run.mutations.length ? pickN(run.mutations, Math.min(3, run.mutations.length)) : [];
+  if(candidates.length===0){
+    const btn = document.createElement('button');
+    btn.className='bigBtn'; btn.textContent='CONTINUAR';
+    btn.onclick = ()=>{ startRun(run.world.id); };
+    wrap.appendChild(btn);
+  }
+  candidates.forEach(id=>{
+    const mu = MUTATIONS[id];
+    const div = document.createElement('div');
+    div.className='card';
+    div.innerHTML = `<div class="cName">${mu.icon} ${mu.name}</div><div class="cDesc">${mu.desc}</div>`;
+    div.onclick = ()=>{
+      session.inheritSingle = id;
+      startRun(run.world.id);
+    };
+    wrap.appendChild(div);
+  });
+  document.getElementById('screenDeath').classList.remove('hidden');
+}
+
+// =========================================================================
+// 12. UI AUXILIAR
+// =========================================================================
+function hideAllOverlays(){
+  ['screenMutation','screenReplace','screenDeath','screenWorldComplete','screenInherit2','screenWorldMap','screenStats','screenEnc'].forEach(id=>{
+    document.getElementById(id).classList.add('hidden');
+  });
+}
+
+function openStats(){
+  if(run) run.paused = true;
+  const p = run ? run.player : freshPlayer();
+  const rows = [
+    ['Vida', run?Math.round(p.hp)+' / '+Math.round(p.maxHp):'-'],
+    ['Ataque', p.atk], ['Defensa', p.def], ['Velocidad', Math.round(p.spd)],
+    ['Prob. crítico', Math.round(p.crit*100)+'%'], ['Esquiva', Math.round(p.dodge*100)+'%'],
+    ['Nivel evolutivo', run?run.level:'-'], ['Generación', session.generation],
+    ['Mundo actual', run?run.world.name:'-'], ['Ranuras', (run?run.mutations.length:0)+' / '+getMaxSlots()],
+    ['ADN total', Math.floor(session.dna)], ['Sinergias descubiertas', session.discoveredCombos.length+' / '+COMBOS.length],
+    ['Muertes totales', session.stats.totalDeaths], ['Bajas totales', session.stats.totalKills],
+  ];
+  document.getElementById('statsList').innerHTML = rows.map(r=>`<div class="statRow"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+  document.getElementById('screenStats').classList.remove('hidden');
+}
+
+function openEncyclopedia(){
+  if(run) run.paused = true;
+  const list = document.getElementById('encList');
+  list.innerHTML = '';
+  ALL_MUTATION_IDS.forEach(id=>{
+    const mu = MUTATIONS[id];
+    const known = mu.hidden ? session.discoveredCombos.includes(id) : isUnlocked(id);
+    const div = document.createElement('div');
+    div.className = 'encItem ' + (known ? 'known' : 'hiddenType');
+    if(known){
+      div.innerHTML = `<div class="encName">${mu.icon} ${mu.name} ${mu.hidden?'(sinergia)':''}</div><div class="encDesc">${mu.desc}${mu.hidden?'<br>Combinación: '+mu.parts.map(p=>MUTATIONS[p]?MUTATIONS[p].name:p).join(' + '):''}</div>`;
+    } else {
+      div.innerHTML = `<div class="encName">???</div><div class="encDesc">${mu.hidden?'Sinergia no descubierta todavía.':'Mutación no desbloqueada (Mundo '+mu.world+').'}</div>`;
+    }
+    list.appendChild(div);
+  });
+  document.getElementById('screenEnc').classList.remove('hidden');
+}
+
+function openWorldMap(){
+  if(run) run.paused = true;
+  const list = document.getElementById('worldMapList');
+  list.innerHTML = '';
+  WORLD_ORDER.forEach(id=>{
+    const w = WORLDS[id];
+    const unlocked = session.unlockedWorlds.includes(id);
+    const done = session.completedWorlds.includes(id);
+    const div = document.createElement('div');
+    div.className = 'worldCard ' + (!unlocked?'locked':'') + (run && run.world.id===id?' current':'');
+    const statusText = done ? '✓ COMPLETADO — puedes volver a jugarlo' : (unlocked ? '● DESBLOQUEADO' : '🔒 BLOQUEADO');
+    const statusClass = done?'status-done':(unlocked?'status-open':'status-locked');
+    div.innerHTML = `<div class="wName">${w.icon} MUNDO ${id} — ${w.name}</div>
+                      <div class="wSub">ADN: ${w.dnaRange[0]}–${w.dnaRange[1]} · Jefe: ${ENEMY_TYPES[w.boss].name}</div>
+                      <div class="wStatus ${statusClass}">${statusText}</div>`;
+    if(unlocked){
+      div.style.cursor='pointer';
+      div.onclick = ()=>{
+        document.getElementById('screenWorldMap').classList.add('hidden');
+        session.inheritSingle = null; session.inheritDouble = null;
+        startRun(id);
+      };
+    }
+    list.appendChild(div);
+  });
+  document.getElementById('screenWorldMap').classList.remove('hidden');
+}
+
+// =========================================================================
+// CONTROLES TÁCTILES + TECLADO
+// =========================================================================
+const controlsEl = document.getElementById('controls');
+const stickEl = document.getElementById('stick');
+let touchId = null, originX=0, originY=0;
+const MAXR = 40;
+
+function setJoy(dx,dy){
+  const m = Math.hypot(dx,dy);
+  const cl = Math.min(m,MAXR);
+  const nx = m? dx/m*cl : 0, ny = m? dy/m*cl : 0;
+  stickEl.style.left = (33+nx)+'px';
+  stickEl.style.top = (33+ny)+'px';
+  if(run) { run.joy.x = nx/MAXR; run.joy.y = ny/MAXR; }
+}
+function resetJoy(){
+  stickEl.style.left='33px'; stickEl.style.top='33px';
+  if(run){ run.joy.x=0; run.joy.y=0; }
+}
+controlsEl.addEventListener('touchstart', e=>{
+  const t = e.changedTouches[0];
+  touchId = t.identifier;
+  const rect = controlsEl.getBoundingClientRect();
+  originX = rect.left+rect.width/2; originY = rect.top+rect.height/2;
+  e.preventDefault();
+},{passive:false});
+controlsEl.addEventListener('touchmove', e=>{
+  for(const t of e.changedTouches){ if(t.identifier===touchId){ setJoy(t.clientX-originX, t.clientY-originY); } }
+  e.preventDefault();
+},{passive:false});
+function endTouch(e){ for(const t of e.changedTouches){ if(t.identifier===touchId){ touchId=null; resetJoy(); } } }
+controlsEl.addEventListener('touchend', endTouch);
+controlsEl.addEventListener('touchcancel', endTouch);
+
+let mouseDown=false;
+controlsEl.addEventListener('mousedown', e=>{
+  mouseDown=true;
+  const rect = controlsEl.getBoundingClientRect();
+  originX = rect.left+rect.width/2; originY = rect.top+rect.height/2;
+});
+window.addEventListener('mousemove', e=>{ if(mouseDown) setJoy(e.clientX-originX, e.clientY-originY); });
+window.addEventListener('mouseup', ()=>{ if(mouseDown){ mouseDown=false; resetJoy(); } });
+
+const keys = {};
+window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true; updateKeyboardJoy(); });
+window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; updateKeyboardJoy(); });
+function updateKeyboardJoy(){
+  if(!run) return;
+  let x=0,y=0;
+  if(keys['arrowleft']||keys['a']) x-=1;
+  if(keys['arrowright']||keys['d']) x+=1;
+  if(keys['arrowup']||keys['w']) y-=1;
+  if(keys['arrowdown']||keys['s']) y+=1;
+  const m = Math.hypot(x,y);
+  run.joy.x = m? x/m:0; run.joy.y = m? y/m:0;
+}
+
+// =========================================================================
+// BOTONES
+// =========================================================================
+document.getElementById('btnStart').onclick = ()=>{
+  document.getElementById('screenStart').classList.add('hidden');
+  startRun(session.currentWorld && session.unlockedWorlds.includes(session.currentWorld) ? session.currentWorld : 1);
+};
+document.getElementById('btnStats').onclick = openStats;
+document.getElementById('btnCloseStats').onclick = ()=>{ document.getElementById('screenStats').classList.add('hidden'); if(run) run.paused=false; };
+document.getElementById('btnEnc').onclick = openEncyclopedia;
+document.getElementById('btnCloseEnc').onclick = ()=>{ document.getElementById('screenEnc').classList.add('hidden'); if(run) run.paused=false; };
+document.getElementById('btnWorlds').onclick = openWorldMap;
+document.getElementById('btnCloseWorlds').onclick = ()=>{ document.getElementById('screenWorldMap').classList.add('hidden'); if(run) run.paused=false; };
+
+// =========================================================================
+// INICIO
+// =========================================================================
+resizeCanvas();
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
