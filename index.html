@@ -235,7 +235,7 @@
     <div id="controls"><div id="stick"></div></div>
     <div id="abilityBtns">
       <button class="abilityBtn shockwave hidden" id="btnShockwave">💥<span class="cd" id="cdShockwave"></span></button>
-      <button class="abilityBtn dash hidden" id="btnDash">🌀<span class="cd" id="cdDash"></span></button>
+      <button class="abilityBtn dash" id="btnDash">🌀<span class="cd" id="cdDash"></span></button>
     </div>
   </div>
 
@@ -243,7 +243,7 @@
     <h1>PRIMER LATIDO</h1>
     <p class="sub">Eres un organismo microscópico evolucionando a través de 3 mundos hostiles. Consigue mutaciones, descubre sinergias y llena tus ranuras genéticas. Al morir, tu progreso permanente sobrevive.</p>
     <button class="bigBtn" id="btnStart">COMENZAR</button>
-    <p class="sub" style="max-width:300px">Arrastra el círculo inferior izquierdo para moverte. El ataque es automático contra enemigos cercanos. Los botones de la derecha activan tus superpoderes cuando los consigas.</p>
+    <p class="sub" style="max-width:300px">Arrastra el círculo inferior izquierdo para moverte. El ataque es automático contra enemigos cercanos. El botón 🌀 (o ESPACIO) hace un dash de esquiva: eres invulnerable durante el impulso. Otros superpoderes se activan al conseguir sus mutaciones.</p>
   </div>
 
   <div class="overlay hidden" id="screenMutation">
@@ -356,6 +356,8 @@ const MUTATIONS = {
     desc:'+50% de velocidad de reproducción.', apply(m){ m.repro*=1.50; } },
   ondaExpansiva:{ name:'Onda Expansiva', icon:'💥', category:'especial', world:1, hidden:false, active:'shockwave',
     desc:'Activa con el botón 💥: libera una onda de daño en área alrededor tuyo. Subir de nivel aumenta el radio de la onda.', apply(m){ m.hasShockwave=true; } },
+  multidisparo:{ name:'Multidisparo', icon:'🎯', category:'especial', world:1, hidden:false,
+    desc:'Tu ataque a distancia dispara varios proyectiles a la vez, repartidos en un pequeño abanico hacia el enemigo más cercano. Subir de nivel aumenta la cantidad de proyectiles por ráfaga.', apply(m){ m.hasRanged=true; } },
 
   // ---- Mundo 2: Mar Volcánico ----
   aguijon:{ name:'Aguijón', icon:'🦂', category:'ofensiva', world:2, hidden:false,
@@ -378,8 +380,6 @@ const MUTATIONS = {
     desc:'+20% defensa y refleja 15% del daño recibido.', apply(m){ m.def*=1.20; m.reflect+=0.15; } },
   sangrehirviente:{ name:'Sangre Hirviente', icon:'🌋', category:'vital', world:2, hidden:false,
     desc:'Al recibir daño, dañas a enemigos cercanos.', apply(m){ m.thorns+=0.5; } },
-  esquivaDash:{ name:'Esquiva Fantasma', icon:'🌀', category:'especial', world:2, hidden:false, active:'dash',
-    desc:'Activa con el botón 🌀: dash instantáneo con invulnerabilidad breve. Cooldown de 5s. Subir de nivel reduce el cooldown.', apply(m){ m.hasDash=true; } },
 
   // ---- Mundo 3: Era Glacial ----
   reflejos:{ name:'Reflejos', icon:'👁️', category:'movilidad', world:3, hidden:false,
@@ -451,8 +451,8 @@ const LEVEL_PERKS = {
   aletas: ['+6% velocidad','+12% velocidad','+18% velocidad','+24% velocidad','+30% velocidad y esquiva +8%'],
   divisioncelular: ['+3% prob. clon','+6% prob. clon','+9% prob. clon','+12% prob. clon','+15% prob. clon y clones más fuertes'],
   ondaExpansiva: ['Radio 150 y daño x2.2','Radio 190 y daño x2.3','Radio 230 y daño x2.4','Radio 270 y daño x2.5','Radio 320 y daño x2.8'],
-  esquivaDash: ['Cooldown 5.0s','Cooldown 4.3s','Cooldown 3.6s','Cooldown 2.9s','Cooldown 2.0s e invulnerabilidad total'],
   virusDisparo: ['1 virus cada 5.0s','1 virus cada 4.2s','2 virus cada 4.2s','2 virus cada 3.4s','3 virus cada 3.0s'],
+  multidisparo: ['2 proyectiles por ráfaga','2 proyectiles por ráfaga','3 proyectiles por ráfaga','3 proyectiles por ráfaga','4 proyectiles por ráfaga'],
 };
 function levelBonusMult(level){ return 1 + (level-1)*0.05; } // boost genérico aplicado a todas las mutaciones según su nivel
 function getMutationLevel(id){ return (session.mutationLevels && session.mutationLevels[id]) || 1; }
@@ -469,11 +469,11 @@ function getLevelDesc(id, lvl){
 // Escalado específico de las 3 habilidades activas según su nivel de Laboratorio.
 function shockwaveRadius(lvl){ return [150,190,230,270,320][clamp(lvl,1,5)-1]; }
 function shockwaveDmgMult(lvl){ return [2.2,2.3,2.4,2.5,2.8][clamp(lvl,1,5)-1]; }
-function dashCooldownFor(lvl){ return [5.0,4.3,3.6,2.9,2.0][clamp(lvl,1,5)-1]; }
 function virusConfigFor(lvl){
   const table = [{n:1,cd:5.0},{n:1,cd:4.2},{n:2,cd:4.2},{n:2,cd:3.4},{n:3,cd:3.0}];
   return table[clamp(lvl,1,5)-1];
 }
+function multidisparoCount(lvl){ return [2,2,3,3,4][clamp(lvl,1,5)-1]; } // total de proyectiles por ráfaga con la mutación activa
 
 // =========================================================================
 // MODIFICADORES DE RETO (opcionales, se activan antes de iniciar una run)
@@ -514,11 +514,11 @@ const ENEMY_TYPES = {
 const WORLDS = {
   1:{ id:1, name:'Océano Primordial', icon:'🌊', bg:'#020506', grid:'rgba(61,218,208,0.05)', border:'rgba(61,218,208,0.35)',
       enemies:['presa','depredador','venenoso','rapido','blindado'], boss:'jefe', bossAt:250,
-      mutationPool:['mandibula','colmillos','garras','veneno','caparazon','escamas','aletas','regeneracion','branquias','reproduccionrapida','ondaExpansiva'],
+      mutationPool:['mandibula','colmillos','garras','veneno','caparazon','escamas','aletas','regeneracion','branquias','reproduccionrapida','ondaExpansiva','multidisparo'],
       dnaRange:[100,300] },
   2:{ id:2, name:'Mar Volcánico', icon:'🌋', bg:'#0a0503', grid:'rgba(255,90,46,0.06)', border:'rgba(255,90,46,0.4)',
       enemies:['presa','lava_slug','obsidiana','swarm_imp','spitter'], boss:'jefeVolcanico', bossAt:260,
-      mutationPool:['aguijon','pielgruesa','musculos','metabolismo','divisioncelular','instintoasesino','simbiosis','glandulaacida','corazaignea','sangrehirviente','esquivaDash'],
+      mutationPool:['aguijon','pielgruesa','musculos','metabolismo','divisioncelular','instintoasesino','simbiosis','glandulaacida','corazaignea','sangrehirviente'],
       dnaRange:[300,600] },
   3:{ id:3, name:'Era Glacial', icon:'❄️', bg:'#03070a', grid:'rgba(143,220,255,0.07)', border:'rgba(143,220,255,0.4)',
       enemies:['presa','ice_crawler','frost_bat','glacier_golem','wisp_freeze'], boss:'jefeGlacial', bossAt:270,
@@ -584,8 +584,14 @@ function freshPlayer(){
     energy:100, maxEnergy:100, energyEff:1, energyRegen:0,
     food:0, maxFood:100, repro:1,
     regen:0, atkCooldown:0, slowTimer:0,
-    hasShockwave:false, hasDash:false, hasVirus:false,
-    shockwaveCd:0, dashCd:0, virusCd:0, invuln:0,
+    hasShockwave:false, hasVirus:false,
+    shockwaveCd:0, virusCd:0, invuln:0,
+    // Dash / esquive: mecánica base disponible desde el inicio (no es mutación)
+    dashCd:0, dashTimer:0, dashing:false, dashDirX:1, dashDirY:0, lastDirX:1, lastDirY:0,
+    // Ataque a distancia (proyectiles): mecánica base preparada para que futuras mutaciones
+    // la potencien (más daño, más alcance, multi-disparo, perforación, velocidad, etc.)
+    hasRanged:true, rangedCd:0, rangedRange:300, rangedCooldown:1.1, rangedDmgMult:0.6,
+    projectileSpeed:380, projectileCount:1, projectilePierce:0,
   };
 }
 
@@ -605,10 +611,10 @@ function startRun(worldId){
     world, time:0, running:true, paused:false, ended:false,
     level:1, killCount:0,
     mutations: startMutations.filter(id=>MUTATIONS[id]),
-    clones: [], enemies: [], pellets: [], viruses: [], shockwaveFx:null,
+    clones: [], enemies: [], pellets: [], viruses: [], projectiles: [], dashTrail: [], shockwaveFx:null,
     spawnTimer:2.2, ambientFoodTimer:3,
     nextMutationAt: 14,
-    bossActive:false, bossDefeated:false, bossesDefeated:0, nextBossAt: BOSS_INTERVAL,
+    bossActive:false, bossDefeated:false, bossesDefeated:0, bossSpawnCount:0, finalBossSpawned:false, nextBossAt: BOSS_INTERVAL,
     joy:{x:0,y:0,active:false}, cam:{x:0,y:0},
     player: freshPlayer(),
     modifiers: mods,
@@ -631,14 +637,22 @@ function startRun(worldId){
 // =========================================================================
 // 6. MUTACIONES / SINERGIAS
 // =========================================================================
+// Objeto acumulador de efectos de mutaciones — lo usa tanto el jugador (recalcStats)
+// como los clones que van heredando mutaciones con el tiempo (recalcCloneStats).
+function newStatAccumulator(){
+  return { hp:1, atk:1, def:1, spd:1, dodge:0, crit:0.05, armorPierce:0,
+           bleed:0, poison:0, poisonSpread:false, sporeBurst:false, lifesteal:0,
+           reflect:0, sharedStats:false, thorns:0, chill:false, chain:false,
+           slowImmune:false, acid:false, cloneChance:0, cloneSpeedMult:1,
+           energyEff:1, energyRegen:0, repro:1, regen:0,
+           hasShockwave:false, hasVirus:false,
+           hasRanged:true, rangedRange:300, rangedCooldown:1.1, rangedDmgMult:0.6,
+           projectileSpeed:380, projectileCount:1, projectilePierce:0 };
+}
+
 function recalcStats(){
   const p = run.player;
-  const m = { hp:1, atk:1, def:1, spd:1, dodge:0, crit:0.05, armorPierce:0,
-              bleed:0, poison:0, poisonSpread:false, sporeBurst:false, lifesteal:0,
-              reflect:0, sharedStats:false, thorns:0, chill:false, chain:false,
-              slowImmune:false, acid:false, cloneChance:0, cloneSpeedMult:1,
-              energyEff:1, energyRegen:0, repro:1, regen:0,
-              hasShockwave:false, hasDash:false, hasVirus:false };
+  const m = newStatAccumulator();
   run.mutations.forEach(id=>{
     const mu = MUTATIONS[id]; if(!mu) return;
     mu.apply(m);
@@ -661,7 +675,10 @@ function recalcStats(){
     chill:m.chill, chain:m.chain, slowImmune:m.slowImmune, acid:m.acid,
     cloneChance:m.cloneChance, cloneSpeedMult:m.cloneSpeedMult,
     energyEff:m.energyEff, energyRegen:m.energyRegen, repro:m.repro, regen:m.regen,
-    hasShockwave:m.hasShockwave, hasDash:m.hasDash, hasVirus:m.hasVirus,
+    hasShockwave:m.hasShockwave, hasVirus:m.hasVirus,
+    hasRanged:m.hasRanged, rangedRange:m.rangedRange, rangedCooldown:m.rangedCooldown,
+    rangedDmgMult:m.rangedDmgMult, projectileSpeed:m.projectileSpeed,
+    projectileCount:m.projectileCount, projectilePierce:m.projectilePierce,
   });
   p.maxEnergy = BASE_STATS.maxEnergy;
   p.maxFood = BASE_STATS.maxFood;
@@ -673,9 +690,8 @@ function updateAbilityButtons(){
   if(!run) return;
   const p = run.player;
   const bSw = document.getElementById('btnShockwave');
-  const bDa = document.getElementById('btnDash');
   if(bSw) bSw.classList.toggle('hidden', !p.hasShockwave);
-  if(bDa) bDa.classList.toggle('hidden', !p.hasDash);
+  // El botón de dash (🌀) es una mecánica base: siempre visible desde el inicio.
 }
 
 function checkSynergies(){
@@ -854,6 +870,8 @@ function spawnEnemy(typeId, forcedPos){
   });
 }
 
+const MAX_CONCURRENT_BOSSES = 2; // tope de jefes vivos a la vez, evita acumulación y caídas de rendimiento
+
 function updateSpawns(dt){
   run.spawnTimer -= dt;
   if(run.spawnTimer<=0){
@@ -863,16 +881,24 @@ function updateSpawns(dt){
     count = Math.max(1, Math.round(count * (run.spawnMult||1)));
     for(let i=0;i<count;i++) spawnEnemy(weightedEnemyType());
   }
-  if(!run.bossActive && run.time>=run.nextBossAt){
-    spawnBoss();
+  // Los jefes aparecen en horario fijo (minuto 1, 2, 3...) sin importar si el anterior sigue vivo,
+  // pero con un tope de jefes simultáneos y sin seguir generando más una vez que aparece el jefe final.
+  if(run.time>=run.nextBossAt){
+    run.nextBossAt += BOSS_INTERVAL;
+    if(!run.finalBossSpawned){
+      const aliveBosses = run.enemies.filter(e=>e.boss).length;
+      if(aliveBosses < MAX_CONCURRENT_BOSSES) spawnBoss();
+    }
   }
 }
 
 function spawnBoss(){
   const w = run.world;
   const t = ENEMY_TYPES[w.boss];
-  const n = run.bossesDefeated + 1; // número de jefe que está por aparecer (1-based)
+  run.bossSpawnCount++;
+  const n = run.bossSpawnCount; // número de jefe según el orden en que aparece (1-based)
   const isFinal = n >= BOSS_COUNT_TO_WIN;
+  if(isFinal) run.finalBossSpawned = true; // ya no aparecerán más jefes hasta que termine la partida/mundo
   const mult = 1 + (n-1)*0.35;
   run.bossActive = true;
   const ang = Math.random()*Math.PI*2, rad = rand(380,520);
@@ -936,9 +962,7 @@ function killEnemy(enemy){
   session.stats.totalKills++;
   run.pellets.push({x:enemy.x, y:enemy.y, food:enemy.food});
   if(enemy.boss){
-    run.bossActive = false;
     run.bossesDefeated++;
-    run.nextBossAt = run.time + BOSS_INTERVAL;
     const dnaGain = Math.round(rand(30,60) * (1 + (enemy.bossNumber-1)*0.4) * (run.dnaMult||1));
     session.dna += dnaGain;
     saveSession();
@@ -959,19 +983,55 @@ function killEnemy(enemy){
   if(run.killCount % 6 === 0){ run.level++; recalcStats(); notify('Nivel evolutivo '+run.level, false); }
 }
 
+const CLONE_MUTATION_INTERVAL = 12; // segundos entre cada mutación que un clon hereda si sobrevive
+
+// Recalcula las estadísticas de un clon a partir de las mutaciones que ha ido heredando
+// (mismo mecanismo que usa el jugador: se reutiliza mu.apply() de cada mutación).
+function recalcCloneStats(c){
+  const base = newStatAccumulator();
+  c.mutationsGained.forEach(id=>{
+    const mu = MUTATIONS[id]; if(!mu) return;
+    mu.apply(base);
+  });
+  const p = run.player;
+  c.atk = +(p.atk*0.5*base.atk).toFixed(1);
+  c.def = +(p.def*0.5*base.def).toFixed(1);
+  c.maxHp = Math.round(p.maxHp*0.5*base.hp);
+  c.hp = Math.min(c.hp!==undefined?c.hp:c.maxHp, c.maxHp);
+  c.crit = clamp(base.crit,0,0.75);
+  c.armorPierce = clamp(base.armorPierce,0,0.7);
+  c.poison = base.poison;
+  c.lifesteal = base.lifesteal;
+}
+
 function spawnClone(x,y){
   if(run.clones.length>=6) return;
-  run.clones.push({ x: x!==undefined?x:run.player.x+rand(-30,30), y: y!==undefined?y:run.player.y+rand(-30,30),
-                     r:9, hp: run.player.maxHp*0.5, maxHp: run.player.maxHp*0.5, atkCd:0 });
+  const c = {
+    x: x!==undefined?x:run.player.x+rand(-30,30), y: y!==undefined?y:run.player.y+rand(-30,30),
+    r:9, atkCd:0,
+    // Herencia progresiva: el clon empieza sin mutaciones y va adquiriendo, una por una,
+    // las que tiene el organismo mientras siga vivo.
+    mutationsGained: [], mutationGainCd: CLONE_MUTATION_INTERVAL,
+    atk:1, def:1, crit:0.05, armorPierce:0, poison:0, lifesteal:0,
+  };
+  recalcCloneStats(c);
+  c.hp = c.maxHp;
+  run.clones.push(c);
 }
 
 // =========================================================================
 // 8b. HABILIDADES ACTIVAS: ONDA EXPANSIVA, DASH, VIRUS
 // =========================================================================
+const SHOCKWAVE_ENERGY_COST = 22; // energía que consume activar la onda expansiva
+const DASH_ENERGY_COST = 16;      // energía que consume activar el dash
+const VIRUS_ENERGY_COST = 10;     // energía que consume cada ráfaga del lanzador viral
+
 function activateShockwave(){
   if(!run || run.paused || run.ended || !run.running) return;
   const p = run.player;
   if(!p.hasShockwave || p.shockwaveCd>0) return;
+  if(p.energy < SHOCKWAVE_ENERGY_COST){ notify('⚡ Energía insuficiente', false); return; }
+  p.energy = Math.max(0, p.energy - SHOCKWAVE_ENERGY_COST);
   const lvl = getMutationLevel('ondaExpansiva');
   const radius = shockwaveRadius(lvl);
   const dmgMult = shockwaveDmgMult(lvl);
@@ -984,19 +1044,26 @@ function activateShockwave(){
   notify('💥 Onda expansiva' + (hits? ' — '+hits+' impactos':''), false);
 }
 
+const DASH_DURATION = 0.25;   // segundos que dura el impulso
+const DASH_COOLDOWN = 2.0;    // segundos de cooldown fijo (mecánica base, no escala con mutaciones)
+const DASH_SPEED = 640;       // velocidad del impulso (px/s), bastante mayor a la velocidad normal
+
 function activateDash(){
   if(!run || run.paused || run.ended || !run.running) return;
   const p = run.player;
-  if(!p.hasDash || p.dashCd>0) return;
-  const lvl = getMutationLevel('esquivaDash');
-  p.dashCd = dashCooldownFor(lvl);
+  if(p.dashCd>0 || p.dashTimer>0) return;
+  if(p.energy < DASH_ENERGY_COST){ notify('⚡ Energía insuficiente', false); return; }
+  p.energy = Math.max(0, p.energy - DASH_ENERGY_COST);
+  // Dirección: la del joystick/WASD activo, o la última dirección de movimiento si está quieto.
   let dx = run.joy.x, dy = run.joy.y;
   const mag = Math.hypot(dx,dy);
-  if(mag<0.05){ dx=1; dy=0; } else { dx/=mag; dy/=mag; }
-  p.x = clamp(p.x + dx*160, p.r, WORLD_SIZE.w-p.r);
-  p.y = clamp(p.y + dy*160, p.r, WORLD_SIZE.h-p.r);
-  p.invuln = lvl>=5 ? 0.55 : 0.35;
-  notify('🌀 Dash de esquiva', false);
+  if(mag<0.05){ dx = p.lastDirX; dy = p.lastDirY; } else { dx/=mag; dy/=mag; }
+  p.dashDirX = dx; p.dashDirY = dy;
+  p.dashTimer = DASH_DURATION;
+  p.dashing = true;
+  p.invuln = DASH_DURATION;      // invulnerable durante todo el impulso
+  p.dashCd = DASH_COOLDOWN;
+  notify('🌀 ¡Dash!', false);
 }
 
 function fireVirus(){
@@ -1015,7 +1082,86 @@ function fireVirus(){
       run.viruses.push({x:p.x, y:p.y, vx:(t.x-p.x)/d*260, vy:(t.y-p.y)/d*260, dmg:p.atk*1.4, r:6, life:2.5});
     });
   }
+  p.energy = Math.max(0, p.energy - VIRUS_ENERGY_COST);
   p.virusCd = cfg.cd;
+}
+
+// =========================================================================
+// 8c. ATAQUE A DISTANCIA (PROYECTILES) — mecánica base, lista para que
+// futuras mutaciones modifiquen su comportamiento (daño, alcance, cooldown,
+// velocidad, cantidad de proyectiles, perforación, efectos al impactar, etc.)
+// Todos los valores relevantes viven en el jugador (p.hasRanged, p.rangedRange,
+// p.rangedCooldown, p.rangedDmgMult, p.projectileSpeed, p.projectileCount,
+// p.projectilePierce) y se recalculan en recalcStats(), así que una mutación
+// futura solo necesita tocar esos campos en su apply(m) para modificar el
+// comportamiento — no hace falta cambiar esta lógica.
+// =========================================================================
+const MAX_PROJECTILES = 14; // límite de proyectiles simultáneos en pantalla
+
+function fireProjectile(target){
+  const p = run.player;
+  if(run.projectiles.length >= MAX_PROJECTILES) return;
+  let count = Math.max(1, Math.round(p.projectileCount||1));
+  if(run.mutations.includes('multidisparo')){
+    count = Math.max(count, multidisparoCount(getMutationLevel('multidisparo')));
+  }
+  const baseAng = Math.atan2(target.y-p.y, target.x-p.x);
+  for(let i=0;i<count && run.projectiles.length<MAX_PROJECTILES;i++){
+    // Con multidisparo (o cualquier futura mutación que suba projectileCount) se reparten en abanico.
+    const spread = count>1 ? (i-(count-1)/2)*0.16 : 0;
+    const ang = baseAng + spread;
+    const speed = p.projectileSpeed||380;
+    run.projectiles.push({
+      x:p.x, y:p.y,
+      vx:Math.cos(ang)*speed, vy:Math.sin(ang)*speed,
+      dmg: p.atk * (p.rangedDmgMult||0.6),
+      r:5,
+      maxRange: p.rangedRange||300,
+      traveled:0,
+      pierce: p.projectilePierce||0,
+      hitSet: new Set(), // enemigos ya golpeados por este proyectil (para perforación futura)
+    });
+  }
+}
+
+function updateRangedAttack(dt){
+  const p = run.player;
+
+  // Disparo automático al enemigo más cercano dentro de rango.
+  if(p.hasRanged){
+    if(p.rangedCd>0) p.rangedCd -= dt;
+    if(p.rangedCd<=0){
+      const target = nearestEnemy(p, p.rangedRange);
+      if(target){
+        fireProjectile(target);
+        p.rangedCd = p.rangedCooldown;
+      }
+    }
+  }
+
+  // Movimiento, colisión y expiración de proyectiles.
+  for(let i=run.projectiles.length-1;i>=0;i--){
+    const pr = run.projectiles[i];
+    const stepX = pr.vx*dt, stepY = pr.vy*dt;
+    pr.x += stepX; pr.y += stepY;
+    pr.traveled += Math.hypot(stepX,stepY);
+
+    let consumed = false;
+    for(const e of run.enemies){
+      if(pr.hitSet.has(e)) continue;
+      if(dist(pr,e) < pr.r+e.r){
+        e.hp -= pr.dmg;
+        pr.hitSet.add(e);
+        if(pr.pierce>0){ pr.pierce--; } else { consumed = true; }
+        break;
+      }
+    }
+
+    const outOfBounds = pr.x<0 || pr.y<0 || pr.x>WORLD_SIZE.w || pr.y>WORLD_SIZE.h;
+    if(consumed || pr.traveled>=pr.maxRange || outOfBounds){
+      run.projectiles.splice(i,1);
+    }
+  }
 }
 
 function updateAbilities(dt){
@@ -1023,10 +1169,18 @@ function updateAbilities(dt){
   if(p.shockwaveCd>0) p.shockwaveCd -= dt;
   if(p.dashCd>0) p.dashCd -= dt;
   if(p.invuln>0) p.invuln -= dt;
+  if(p.dashTimer>0){
+    p.dashTimer -= dt;
+    if(p.dashTimer<=0){ p.dashTimer=0; p.dashing=false; }
+  }
+  for(let i=run.dashTrail.length-1;i>=0;i--){
+    run.dashTrail[i].life -= dt;
+    if(run.dashTrail[i].life<=0) run.dashTrail.splice(i,1);
+  }
 
   if(p.hasVirus){
     p.virusCd -= dt;
-    if(p.virusCd<=0) fireVirus();
+    if(p.virusCd<=0 && p.energy>=VIRUS_ENERGY_COST) fireVirus();
   }
 
   if(run.shockwaveFx){
@@ -1056,13 +1210,11 @@ function updateAbilityCds(){
   const cdSw = document.getElementById('cdShockwave');
   const cdDa = document.getElementById('cdDash');
   if(p.hasShockwave){
-    btnSw.disabled = p.shockwaveCd>0;
+    btnSw.disabled = p.shockwaveCd>0 || p.energy<SHOCKWAVE_ENERGY_COST;
     cdSw.textContent = p.shockwaveCd>0 ? Math.ceil(p.shockwaveCd)+'s' : '';
   }
-  if(p.hasDash){
-    btnDa.disabled = p.dashCd>0;
-    cdDa.textContent = p.dashCd>0 ? Math.ceil(p.dashCd)+'s' : '';
-  }
+  btnDa.disabled = p.dashCd>0 || p.dashTimer>0 || p.energy<DASH_ENERGY_COST;
+  cdDa.textContent = p.dashCd>0 ? Math.ceil(p.dashCd)+'s' : '';
 }
 
 // =========================================================================
@@ -1164,12 +1316,19 @@ function update(dt){
   const mag = Math.hypot(jx,jy);
   const slowMult = p.slowTimer>0 ? 0.55 : 1;
   if(p.slowTimer>0) p.slowTimer -= dt;
-  if(mag>0.05){
+
+  if(p.dashTimer>0){
+    // Impulso de dash: movimiento rápido en la dirección fijada al activar, ignora el input normal.
+    p.x = clamp(p.x + p.dashDirX*DASH_SPEED*dt, p.r, WORLD_SIZE.w-p.r);
+    p.y = clamp(p.y + p.dashDirY*DASH_SPEED*dt, p.r, WORLD_SIZE.h-p.r);
+    run.dashTrail.push({x:p.x, y:p.y, life:0.28, r:p.r});
+  } else if(mag>0.05){
     p.x = clamp(p.x + (jx/mag)*p.spd*slowMult*dt, p.r, WORLD_SIZE.w-p.r);
     p.y = clamp(p.y + (jy/mag)*p.spd*slowMult*dt, p.r, WORLD_SIZE.h-p.r);
+    p.lastDirX = jx/mag; p.lastDirY = jy/mag;
   }
 
-  if(mag>0.05){ p.energy -= BASE_STATS.energyDrain*p.energyEff*dt; }
+  if(mag>0.05 && p.dashTimer<=0){ p.energy -= BASE_STATS.energyDrain*p.energyEff*dt; }
   p.energy += p.energyRegen*dt;
   p.energy = clamp(p.energy,0,p.maxEnergy);
   if(p.energy<=0){ p.hp -= 1.5*dt; }
@@ -1204,14 +1363,29 @@ function update(dt){
   }
 
   run.clones.forEach(c=>{
-    if(p.sharedStats){ c.maxHp = p.maxHp*0.9; c.hp = Math.min(c.hp, c.maxHp); }
+    if(p.sharedStats){
+      c.maxHp = p.maxHp*0.9; c.hp = Math.min(c.hp, c.maxHp);
+    } else {
+      // Herencia progresiva: mientras el clon sobreviva, va adquiriendo 1 a 1 las
+      // mutaciones que tiene el organismo en ese momento.
+      c.mutationGainCd -= dt;
+      if(c.mutationGainCd<=0){
+        const next = run.mutations.find(id=>!c.mutationsGained.includes(id));
+        if(next){
+          c.mutationsGained.push(next);
+          recalcCloneStats(c);
+          notify('🧬 Un clon heredó: ' + MUTATIONS[next].icon + ' ' + MUTATIONS[next].name, false);
+        }
+        c.mutationGainCd = CLONE_MUTATION_INTERVAL;
+      }
+    }
     const target = nearestEnemy(c, 260);
     if(target){
       const d = dist(c,target);
       if(d>36){ const dx=(target.x-c.x)/d, dy=(target.y-c.y)/d; c.x+=dx*p.spd*0.9*dt; c.y+=dy*p.spd*0.9*dt; }
       c.atkCd -= dt;
       if(d<=44 && c.atkCd<=0){
-        const atkStats = p.sharedStats ? p : {atk:p.atk*0.5, crit:p.crit, armorPierce:p.armorPierce, poison:p.poison*0.5, lifesteal:0};
+        const atkStats = p.sharedStats ? p : {atk:c.atk, crit:c.crit, armorPierce:c.armorPierce, poison:c.poison, lifesteal:c.lifesteal};
         dealDamage(atkStats, target);
         c.atkCd = 0.9;
         if(target.hp<=0){ removeEnemy(target); }
@@ -1225,6 +1399,7 @@ function update(dt){
 
   updateSpawns(dt);
   updateAbilities(dt);
+  updateRangedAttack(dt);
   p.atkCooldown -= dt;
   run.enemies.forEach(e=>{
     e.atkCd -= dt;
@@ -1331,6 +1506,19 @@ function render(){
     ctx.arc(v.x, v.y, v.r+3, 0, 7); ctx.stroke();
   });
 
+  // Proyectiles del ataque a distancia: pequeña cápsula orientada + estela.
+  run.projectiles.forEach(pr=>{
+    const ang = Math.atan2(pr.vy, pr.vx);
+    ctx.save();
+    ctx.translate(pr.x, pr.y);
+    ctx.rotate(ang);
+    ctx.strokeStyle = 'rgba(92,217,255,0.55)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-pr.r*3.2,0); ctx.lineTo(-pr.r*1.1,0); ctx.stroke();
+    ctx.beginPath(); ctx.fillStyle = '#5cd9ff';
+    ctx.ellipse(0,0, pr.r*1.3, pr.r*0.75, 0, 0, 7); ctx.fill();
+    ctx.restore();
+  });
+
   if(run.shockwaveFx){
     const fx = run.shockwaveFx;
     const prog = 1 - (fx.timer/fx.maxTimer);
@@ -1341,8 +1529,22 @@ function render(){
     ctx.restore();
   }
 
+  // Estela del dash: imágenes residuales que se desvanecen rápidamente.
+  run.dashTrail.forEach(t=>{
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, t.life/0.28) * 0.45;
+    ctx.fillStyle = '#3ddad0';
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.r*0.85, 0, 7); ctx.fill();
+    ctx.restore();
+  });
+
   drawCreature(run.player.x, run.player.y, run.player.r, playerColor(), 1);
-  if(run.player.invuln>0){
+  if(run.player.dashing){
+    ctx.save();
+    ctx.strokeStyle = '#3ddad0'; ctx.lineWidth = 4; ctx.globalAlpha = 0.9;
+    ctx.beginPath(); ctx.arc(run.player.x, run.player.y, run.player.r+9, 0, 7); ctx.stroke();
+    ctx.restore();
+  } else if(run.player.invuln>0){
     ctx.save();
     ctx.strokeStyle = '#b06cff'; ctx.lineWidth = 3; ctx.globalAlpha = 0.8;
     ctx.beginPath(); ctx.arc(run.player.x, run.player.y, run.player.r+6, 0, 7); ctx.stroke();
