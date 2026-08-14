@@ -540,6 +540,7 @@ function defaultSession(){
     unlockedWorlds:[1],
     completedWorlds:[],
     unlockedMutations: [...WORLDS[1].mutationPool],
+    everOfferedMutations: [], // registro histórico de mutaciones ya ofrecidas, para garantizar que todas puedan salir
     discoveredCombos: [],
     dna:0,
     inheritSingle:null,   // 1 mutación heredada tras muerte normal
@@ -549,6 +550,14 @@ function defaultSession(){
   };
 }
 let session = loadSession();
+// Reparación de compatibilidad: si la partida guardada viene de una versión anterior
+// que no incluía todas las mutaciones base (p.ej. Onda Expansiva o Multidisparo),
+// se vuelven a desbloquear aquí para los mundos que el jugador ya tiene disponibles.
+session.unlockedWorlds.forEach(wid=>{
+  if(WORLDS[wid]) WORLDS[wid].mutationPool.forEach(unlockMutation);
+});
+if(!Array.isArray(session.everOfferedMutations)) session.everOfferedMutations = [];
+saveSession();
 function loadSession(){
   try{
     const raw = localStorage.getItem(SAVE_KEY);
@@ -592,10 +601,12 @@ function freshPlayer(){
     // la potencien (más daño, más alcance, multi-disparo, perforación, velocidad, etc.)
     hasRanged:true, rangedCd:0, rangedRange:300, rangedCooldown:1.1, rangedDmgMult:0.6,
     projectileSpeed:380, projectileCount:1, projectilePierce:0,
+    // Crecimiento por alimento acumulado (afecta el tamaño visual/hitbox del organismo)
+    foodEatenTotal:0, growthStage:0,
   };
 }
 
-function startRun(worldId){
+function startRun(worldId, carryClones){
   const world = WORLDS[worldId];
   session.currentWorld = worldId;
   let startMutations = [];
@@ -626,6 +637,17 @@ function startRun(worldId){
   recalcStats();
   run.player.hp = run.player.maxHp;
   run.player.energy = run.player.maxEnergy;
+  // Los clones ("hijos") viajan junto al organismo al cambiar de mundo: se reubican
+  // cerca del punto de inicio y se recalculan sus estadísticas con el jugador ya listo.
+  if(carryClones && carryClones.length){
+    run.clones = carryClones.map(c=>{
+      c.x = run.player.x + rand(-40,40);
+      c.y = run.player.y + rand(-40,40);
+      recalcCloneStats(c);
+      applyGrowthRadius(c, CLONE_BASE_R, CLONE_GROWTH_RADIUS_STEP);
+      return c;
+    });
+  }
   saveSession();
   hideAllOverlays();
   updateWorldHud();
@@ -721,7 +743,14 @@ function offerMutations(){
   let pool = session.unlockedMutations.filter(id=>!owned.has(id) && !MUTATIONS[id].hidden);
   if(pool.length < 3) pool = ALL_MUTATION_IDS.filter(id=>!MUTATIONS[id].hidden && !owned.has(id));
   if(pool.length === 0) pool = ALL_MUTATION_IDS.filter(id=>!MUTATIONS[id].hidden);
-  const options = pickN(pool, Math.min(3,pool.length));
+  // Se priorizan las mutaciones que el jugador nunca ha visto ofrecidas, para garantizar
+  // que con el tiempo todas puedan llegar a aparecer (evita rachas de mala suerte).
+  const unseen = pool.filter(id=>!session.everOfferedMutations.includes(id));
+  const seen = pool.filter(id=>session.everOfferedMutations.includes(id));
+  const orderedPool = pickN(unseen, unseen.length).concat(pickN(seen, seen.length));
+  const options = orderedPool.slice(0, Math.min(3, orderedPool.length));
+  options.forEach(id=>{ if(!session.everOfferedMutations.includes(id)) session.everOfferedMutations.push(id); });
+  saveSession();
   const wrap = document.getElementById('mutationCards');
   wrap.innerHTML = '';
   document.getElementById('slotsWarning').textContent =
@@ -1013,9 +1042,14 @@ function spawnClone(x,y){
     // las que tiene el organismo mientras siga vivo.
     mutationsGained: [], mutationGainCd: CLONE_MUTATION_INTERVAL,
     atk:1, def:1, crit:0.05, armorPierce:0, poison:0, lifesteal:0,
+    // Crecimiento por alimento acumulado propio del clon
+    foodEatenTotal:0, growthStage:0,
+    // Reproducción propia del clon: acumula alimento y genera un nuevo clon al llenarse
+    food:0, maxFood: CLONE_MAX_FOOD,
   };
   recalcCloneStats(c);
   c.hp = c.maxHp;
+  applyGrowthRadius(c, CLONE_BASE_R, CLONE_GROWTH_RADIUS_STEP);
   run.clones.push(c);
 }
 
@@ -1218,6 +1252,39 @@ function updateAbilityCds(){
 }
 
 // =========================================================================
+// 8d. CRECIMIENTO POR ALIMENTO — tanto el organismo principal como sus
+// clones ("hijos") aumentan de tamaño (radio) al acumular cierta cantidad
+// de alimento comido. Es progresivo, por etapas, con un tope máximo.
+// =========================================================================
+const PLAYER_BASE_R = 14;
+const CLONE_BASE_R = 9;
+const GROWTH_FOOD_STEP = 45;       // alimento acumulado necesario por cada etapa de crecimiento
+const GROWTH_MAX_STAGE = 6;        // número máximo de etapas de crecimiento
+const GROWTH_RADIUS_STEP = 2.2;    // cuánto crece el radio del jugador por etapa
+const CLONE_GROWTH_RADIUS_STEP = 1.3; // cuánto crece el radio de un clon por etapa
+const CLONE_MAX_FOOD = 70; // alimento que un clon necesita acumular para reproducirse
+const CLONE_REPRO_FOOD_RATE = 0.5; // fracción del alimento del pellet que aporta a la barra de reproducción del clon
+
+// Aplica el radio correspondiente a la etapa de crecimiento actual de una entidad.
+function applyGrowthRadius(entity, baseR, step){
+  entity.r = baseR + entity.growthStage*step;
+}
+
+// Suma alimento a una entidad (jugador o clon) y la hace crecer de tamaño si
+// alcanza el siguiente umbral. Devuelve true si hubo un cambio de etapa.
+function feedAndGrow(entity, foodAmount, baseR, step, isPlayer){
+  entity.foodEatenTotal = (entity.foodEatenTotal||0) + foodAmount;
+  const newStage = Math.min(GROWTH_MAX_STAGE, Math.floor(entity.foodEatenTotal / GROWTH_FOOD_STEP));
+  if(newStage > (entity.growthStage||0)){
+    entity.growthStage = newStage;
+    applyGrowthRadius(entity, baseR, step);
+    notify((isPlayer ? '🧫 Tu organismo ha crecido de tamaño' : '🧫 Un clon ha crecido de tamaño'), false);
+    return true;
+  }
+  return false;
+}
+
+// =========================================================================
 // 9. MUNDO COMPLETADO
 // =========================================================================
 function checkWorldCompletion(){
@@ -1252,11 +1319,12 @@ let inherit2Selected = [];
 document.getElementById('btnGoInherit').onclick = ()=>{
   document.getElementById('screenWorldComplete').classList.add('hidden');
   const nextId = WORLD_ORDER[WORLD_ORDER.indexOf(run.world.id)+1];
+  const carryClones = run.clones.slice();
   if(!nextId){
     // ya completó el último mundo: reinicia ciclo en mundo 1 conservando progreso
     session.inheritDouble = null;
     session.generation++;
-    startRun(1);
+    startRun(1, carryClones);
     notify('Has completado todos los mundos disponibles. ¡Nueva vuelta evolutiva!', true);
     return;
   }
@@ -1280,7 +1348,7 @@ document.getElementById('btnGoInherit').onclick = ()=>{
   document.getElementById('btnConfirmInherit2').onclick = ()=>{
     session.inheritDouble = inherit2Selected.slice();
     session.generation++;
-    startRun(nextId);
+    startRun(nextId, carryClones);
   };
   document.getElementById('screenInherit2').classList.remove('hidden');
 };
@@ -1341,6 +1409,7 @@ function update(dt){
       const fm = run.foodMult||1;
       p.energy = Math.min(p.maxEnergy, p.energy + pel.food*1.1*fm);
       p.food = Math.min(p.maxFood, p.food + pel.food*0.6*fm);
+      feedAndGrow(p, pel.food*fm, PLAYER_BASE_R, GROWTH_RADIUS_STEP, true);
       run.pellets.splice(i,1);
     }
   }
@@ -1378,6 +1447,25 @@ function update(dt){
         }
         c.mutationGainCd = CLONE_MUTATION_INTERVAL;
       }
+    }
+    // Los clones también comen: si pasan cerca de un pellet de comida, lo consumen,
+    // recuperan algo de vida, acumulan alimento propio para crecer de tamaño y
+    // acumulan alimento de reproducción para poder generar nuevos clones.
+    for(let i=run.pellets.length-1;i>=0;i--){
+      const pel = run.pellets[i];
+      if(dist(pel,c) < c.r+10){
+        const fm = run.foodMult||1;
+        c.hp = Math.min(c.maxHp, c.hp + pel.food*0.4*fm);
+        feedAndGrow(c, pel.food*0.6*fm, CLONE_BASE_R, CLONE_GROWTH_RADIUS_STEP, false);
+        c.food = Math.min(c.maxFood, (c.food||0) + pel.food*CLONE_REPRO_FOOD_RATE*fm);
+        run.pellets.splice(i,1);
+        break;
+      }
+    }
+    if(c.food >= c.maxFood){
+      c.food = 0;
+      spawnClone(c.x + rand(-25,25), c.y + rand(-25,25));
+      notify('🧫 Un clon se ha reproducido', false);
     }
     const target = nearestEnemy(c, 260);
     if(target){
@@ -1485,8 +1573,8 @@ function render(){
   });
 
   run.clones.forEach(c=>{
-    drawCreature(c.x,c.y,10,'#7fe9e2',0.7);
-    drawHpBar(c.x,c.y-20,c.hp,c.maxHp,20);
+    drawCreature(c.x,c.y,c.r,'#7fe9e2',0.7);
+    drawHpBar(c.x,c.y-c.r-8,c.hp,c.maxHp,20);
   });
 
   let bossRef = null;
@@ -1583,8 +1671,11 @@ function drawCreature(x,y,r,color,alpha){
 }
 function drawHpBar(x,y,hp,maxHp,width){
   const pct = clamp(hp/maxHp,0,1);
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(x-width/2,y,width,4);
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.fillRect(x-width/2-1,y-1,width+2,6);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x-width/2-1,y-1,width+2,6);
   ctx.fillStyle = pct>0.5 ? '#3ddad0' : (pct>0.2?'#ffb454':'#ff4d6d');
   ctx.fillRect(x-width/2,y,width*pct,4);
 }
@@ -1656,6 +1747,7 @@ function openStats(){
     ['Prob. crítico', Math.round(p.crit*100)+'%'], ['Esquiva', Math.round(p.dodge*100)+'%'],
     ['Nivel evolutivo', run?run.level:'-'], ['Generación', session.generation],
     ['Mundo actual', run?run.world.name:'-'], ['Ranuras', (run?run.mutations.length:0)+' / '+getMaxSlots()],
+    ['Tamaño (etapa)', (run?p.growthStage:0)+' / '+GROWTH_MAX_STAGE],
     ['ADN total', Math.floor(session.dna)], ['Sinergias descubiertas', session.discoveredCombos.length+' / '+COMBOS.length],
     ['Muertes totales', session.stats.totalDeaths], ['Bajas totales', session.stats.totalKills],
   ];
@@ -1732,7 +1824,8 @@ function openWorldMap(){
       div.onclick = ()=>{
         document.getElementById('screenWorldMap').classList.add('hidden');
         session.inheritSingle = null; session.inheritDouble = null;
-        startRun(id);
+        const carryClones = run ? run.clones.slice() : [];
+        startRun(id, carryClones);
       };
     }
     list.appendChild(div);
