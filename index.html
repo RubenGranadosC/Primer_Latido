@@ -58,6 +58,7 @@
     position:relative;
   }
   .slot.empty{border-style:dashed; opacity:.5;}
+  .slot.locked{border-style:dotted; opacity:.35; color:var(--danger); cursor:pointer; font-size:12px;}
   .slot.combo{border-color:var(--violet); box-shadow:0 0 6px rgba(176,108,255,.5);}
 
   /* ---------- Canvas area ---------- */
@@ -66,7 +67,9 @@
   #notifyLayer{
     position:absolute; top:8px; left:50%; transform:translateX(-50%);
     display:flex; flex-direction:column; gap:4px; align-items:center; pointer-events:none; z-index:4;
+    transition:top .2s ease;
   }
+  #notifyLayer.pushed{ top:50px; }
   .notify{
     background:rgba(10,20,22,.9); border:1px solid var(--teal-dim); color:var(--teal);
     padding:5px 12px; border-radius:14px; font-size:11px; opacity:0; transform:translateY(-6px);
@@ -91,6 +94,23 @@
     position:absolute; width:44px; height:44px; border-radius:50%;
     background:rgba(61,218,208,.35); border:1px solid var(--teal);
     left:33px; top:33px; pointer-events:none;
+  }
+
+  /* ---------- Ability buttons ---------- */
+  #abilityBtns{
+    position:absolute; bottom:14px; right:14px; display:flex; flex-direction:column; gap:10px; z-index:4;
+  }
+  .abilityBtn{
+    width:58px; height:58px; border-radius:50%; border:1px solid var(--teal-dim);
+    background:rgba(61,218,208,.14); color:var(--teal); font-size:22px;
+    display:flex; align-items:center; justify-content:center; position:relative;
+    font-family:inherit;
+  }
+  .abilityBtn.dash{border-color:var(--violet); color:var(--violet); background:rgba(176,108,255,.14);}
+  .abilityBtn:disabled{opacity:.35;}
+  .abilityBtn .cd{
+    position:absolute; bottom:-15px; left:50%; transform:translateX(-50%);
+    font-size:9px; color:var(--text-dim); white-space:nowrap;
   }
 
   /* ---------- Overlays ---------- */
@@ -213,19 +233,24 @@
     <div id="bossHpWrap"><div id="bossHpLabel"></div><div class="bar-wrap"><div class="bar-fill boss" id="barBoss"></div></div></div>
     <div id="bossBanner"></div>
     <div id="controls"><div id="stick"></div></div>
+    <div id="abilityBtns">
+      <button class="abilityBtn shockwave hidden" id="btnShockwave">💥<span class="cd" id="cdShockwave"></span></button>
+      <button class="abilityBtn dash hidden" id="btnDash">🌀<span class="cd" id="cdDash"></span></button>
+    </div>
   </div>
 
   <div class="overlay" id="screenStart">
     <h1>PRIMER LATIDO</h1>
     <p class="sub">Eres un organismo microscópico evolucionando a través de 3 mundos hostiles. Consigue mutaciones, descubre sinergias y llena tus ranuras genéticas. Al morir, tu progreso permanente sobrevive.</p>
     <button class="bigBtn" id="btnStart">COMENZAR</button>
-    <p class="sub" style="max-width:300px">Arrastra el círculo inferior izquierdo para moverte. El ataque es automático contra enemigos cercanos.</p>
+    <p class="sub" style="max-width:300px">Arrastra el círculo inferior izquierdo para moverte. El ataque es automático contra enemigos cercanos. Los botones de la derecha activan tus superpoderes cuando los consigas.</p>
   </div>
 
   <div class="overlay hidden" id="screenMutation">
     <h2>ELIGE UNA MUTACIÓN</h2>
     <p class="sub" id="slotsWarning"></p>
     <div id="mutationCards"></div>
+    <button class="ghostBtn" id="btnSkipMutation">OMITIR / NO ELEGIR NINGUNA</button>
   </div>
 
   <div class="overlay hidden" id="screenReplace">
@@ -329,6 +354,8 @@ const MUTATIONS = {
     desc:'Regeneras energía pasivamente.', apply(m){ m.energyRegen+=0.6; } },
   reproduccionrapida:{ name:'Reproducción Rápida', icon:'🥚', category:'reproductiva', world:1, hidden:false,
     desc:'+50% de velocidad de reproducción.', apply(m){ m.repro*=1.50; } },
+  ondaExpansiva:{ name:'Onda Expansiva', icon:'💥', category:'especial', world:1, hidden:false, active:'shockwave',
+    desc:'Activa con el botón 💥: libera una onda de daño en área alrededor tuyo. Subir de nivel aumenta el radio de la onda.', apply(m){ m.hasShockwave=true; } },
 
   // ---- Mundo 2: Mar Volcánico ----
   aguijon:{ name:'Aguijón', icon:'🦂', category:'ofensiva', world:2, hidden:false,
@@ -351,6 +378,8 @@ const MUTATIONS = {
     desc:'+20% defensa y refleja 15% del daño recibido.', apply(m){ m.def*=1.20; m.reflect+=0.15; } },
   sangrehirviente:{ name:'Sangre Hirviente', icon:'🌋', category:'vital', world:2, hidden:false,
     desc:'Al recibir daño, dañas a enemigos cercanos.', apply(m){ m.thorns+=0.5; } },
+  esquivaDash:{ name:'Esquiva Fantasma', icon:'🌀', category:'especial', world:2, hidden:false, active:'dash',
+    desc:'Activa con el botón 🌀: dash instantáneo con invulnerabilidad breve. Cooldown de 5s. Subir de nivel reduce el cooldown.', apply(m){ m.hasDash=true; } },
 
   // ---- Mundo 3: Era Glacial ----
   reflejos:{ name:'Reflejos', icon:'👁️', category:'movilidad', world:3, hidden:false,
@@ -367,6 +396,8 @@ const MUTATIONS = {
     desc:'+12% esquiva y +10% crítico (reflejos cristalinos).', apply(m){ m.dodge+=0.12; m.crit+=0.10; } },
   bioelectricidad:{ name:'Bioelectricidad', icon:'⚡', category:'ofensiva', world:3, hidden:false,
     desc:'+25% daño y tus ataques encadenan a un enemigo cercano.', apply(m){ m.atk*=1.25; m.chain=true; } },
+  virusDisparo:{ name:'Lanzador Viral', icon:'🦠', category:'especial', world:3, hidden:false, active:'virus',
+    desc:'Dispara virus automáticamente hacia los enemigos más cercanos cada pocos segundos. Subir de nivel reduce el cooldown y/o aumenta la cantidad de virus disparados.', apply(m){ m.hasVirus=true; } },
 
   // ---- Sinergias ocultas ----
   depredador:{ name:'Depredador', icon:'🐊', category:'sinergia', hidden:true, parts:['mandibula','colmillos'],
@@ -419,6 +450,9 @@ const LEVEL_PERKS = {
   regeneracion: ['+0.2 regen/s','+0.4 regen/s','+0.7 regen/s','+1.0 regen/s','+1.4 regen/s y cura al matar'],
   aletas: ['+6% velocidad','+12% velocidad','+18% velocidad','+24% velocidad','+30% velocidad y esquiva +8%'],
   divisioncelular: ['+3% prob. clon','+6% prob. clon','+9% prob. clon','+12% prob. clon','+15% prob. clon y clones más fuertes'],
+  ondaExpansiva: ['Radio 150 y daño x2.2','Radio 190 y daño x2.3','Radio 230 y daño x2.4','Radio 270 y daño x2.5','Radio 320 y daño x2.8'],
+  esquivaDash: ['Cooldown 5.0s','Cooldown 4.3s','Cooldown 3.6s','Cooldown 2.9s','Cooldown 2.0s e invulnerabilidad total'],
+  virusDisparo: ['1 virus cada 5.0s','1 virus cada 4.2s','2 virus cada 4.2s','2 virus cada 3.4s','3 virus cada 3.0s'],
 };
 function levelBonusMult(level){ return 1 + (level-1)*0.05; } // boost genérico aplicado a todas las mutaciones según su nivel
 function getMutationLevel(id){ return (session.mutationLevels && session.mutationLevels[id]) || 1; }
@@ -430,6 +464,15 @@ function getUpgradeCost(id){
 function getLevelDesc(id, lvl){
   if(LEVEL_PERKS[id]) return LEVEL_PERKS[id][lvl-1] || LEVEL_PERKS[id][LEVEL_PERKS[id].length-1];
   return 'Nivel '+lvl+': efecto base +'+Math.round((levelBonusMult(lvl)-1)*100)+'%';
+}
+
+// Escalado específico de las 3 habilidades activas según su nivel de Laboratorio.
+function shockwaveRadius(lvl){ return [150,190,230,270,320][clamp(lvl,1,5)-1]; }
+function shockwaveDmgMult(lvl){ return [2.2,2.3,2.4,2.5,2.8][clamp(lvl,1,5)-1]; }
+function dashCooldownFor(lvl){ return [5.0,4.3,3.6,2.9,2.0][clamp(lvl,1,5)-1]; }
+function virusConfigFor(lvl){
+  const table = [{n:1,cd:5.0},{n:1,cd:4.2},{n:2,cd:4.2},{n:2,cd:3.4},{n:3,cd:3.0}];
+  return table[clamp(lvl,1,5)-1];
 }
 
 // =========================================================================
@@ -471,18 +514,20 @@ const ENEMY_TYPES = {
 const WORLDS = {
   1:{ id:1, name:'Océano Primordial', icon:'🌊', bg:'#020506', grid:'rgba(61,218,208,0.05)', border:'rgba(61,218,208,0.35)',
       enemies:['presa','depredador','venenoso','rapido','blindado'], boss:'jefe', bossAt:250,
-      mutationPool:['mandibula','colmillos','garras','veneno','caparazon','escamas','aletas','regeneracion','branquias','reproduccionrapida'],
+      mutationPool:['mandibula','colmillos','garras','veneno','caparazon','escamas','aletas','regeneracion','branquias','reproduccionrapida','ondaExpansiva'],
       dnaRange:[100,300] },
   2:{ id:2, name:'Mar Volcánico', icon:'🌋', bg:'#0a0503', grid:'rgba(255,90,46,0.06)', border:'rgba(255,90,46,0.4)',
       enemies:['presa','lava_slug','obsidiana','swarm_imp','spitter'], boss:'jefeVolcanico', bossAt:260,
-      mutationPool:['aguijon','pielgruesa','musculos','metabolismo','divisioncelular','instintoasesino','simbiosis','glandulaacida','corazaignea','sangrehirviente'],
+      mutationPool:['aguijon','pielgruesa','musculos','metabolismo','divisioncelular','instintoasesino','simbiosis','glandulaacida','corazaignea','sangrehirviente','esquivaDash'],
       dnaRange:[300,600] },
   3:{ id:3, name:'Era Glacial', icon:'❄️', bg:'#03070a', grid:'rgba(143,220,255,0.07)', border:'rgba(143,220,255,0.4)',
       enemies:['presa','ice_crawler','frost_bat','glacier_golem','wisp_freeze'], boss:'jefeGlacial', bossAt:270,
-      mutationPool:['reflejos','placasoseas','hibernacion','sangregelida','pielaislante','cristalizacion','bioelectricidad'],
+      mutationPool:['reflejos','placasoseas','hibernacion','sangregelida','pielaislante','cristalizacion','bioelectricidad','virusDisparo'],
       dnaRange:[600,1200] },
 };
 const WORLD_ORDER = [1,2,3];
+const BOSS_COUNT_TO_WIN = 5;   // hay que derrotar al 5º jefe (jefe final) para completar el mundo
+const BOSS_INTERVAL = 60;      // segundos entre jefes
 
 // =========================================================================
 // 4. PROGRESO PERSISTENTE (localStorage)
@@ -519,6 +564,7 @@ function saveSession(){
 function isUnlocked(id){ return session.unlockedMutations.includes(id); }
 function unlockMutation(id){ if(!isUnlocked(id)){ session.unlockedMutations.push(id); } }
 function getMaxSlots(){ return clamp(2 + session.generation, 3, 10); }
+const MAX_LEVEL_SLOTS = 10;
 
 // =========================================================================
 // 5. ESTADO DE PARTIDA
@@ -538,6 +584,8 @@ function freshPlayer(){
     energy:100, maxEnergy:100, energyEff:1, energyRegen:0,
     food:0, maxFood:100, repro:1,
     regen:0, atkCooldown:0, slowTimer:0,
+    hasShockwave:false, hasDash:false, hasVirus:false,
+    shockwaveCd:0, dashCd:0, virusCd:0, invuln:0,
   };
 }
 
@@ -557,10 +605,10 @@ function startRun(worldId){
     world, time:0, running:true, paused:false, ended:false,
     level:1, killCount:0,
     mutations: startMutations.filter(id=>MUTATIONS[id]),
-    clones: [], enemies: [], pellets: [],
+    clones: [], enemies: [], pellets: [], viruses: [], shockwaveFx:null,
     spawnTimer:2.2, ambientFoodTimer:3,
     nextMutationAt: 14,
-    bossSpawned:false, bossDefeated:false,
+    bossActive:false, bossDefeated:false, bossesDefeated:0, nextBossAt: BOSS_INTERVAL,
     joy:{x:0,y:0,active:false}, cam:{x:0,y:0},
     player: freshPlayer(),
     modifiers: mods,
@@ -576,6 +624,7 @@ function startRun(worldId){
   hideAllOverlays();
   updateWorldHud();
   refreshSlotsRow();
+  updateAbilityButtons();
   document.getElementById('bossHpWrap').classList.remove('show');
 }
 
@@ -588,7 +637,8 @@ function recalcStats(){
               bleed:0, poison:0, poisonSpread:false, sporeBurst:false, lifesteal:0,
               reflect:0, sharedStats:false, thorns:0, chill:false, chain:false,
               slowImmune:false, acid:false, cloneChance:0, cloneSpeedMult:1,
-              energyEff:1, energyRegen:0, repro:1, regen:0 };
+              energyEff:1, energyRegen:0, repro:1, regen:0,
+              hasShockwave:false, hasDash:false, hasVirus:false };
   run.mutations.forEach(id=>{
     const mu = MUTATIONS[id]; if(!mu) return;
     mu.apply(m);
@@ -611,10 +661,21 @@ function recalcStats(){
     chill:m.chill, chain:m.chain, slowImmune:m.slowImmune, acid:m.acid,
     cloneChance:m.cloneChance, cloneSpeedMult:m.cloneSpeedMult,
     energyEff:m.energyEff, energyRegen:m.energyRegen, repro:m.repro, regen:m.regen,
+    hasShockwave:m.hasShockwave, hasDash:m.hasDash, hasVirus:m.hasVirus,
   });
   p.maxEnergy = BASE_STATS.maxEnergy;
   p.maxFood = BASE_STATS.maxFood;
   p.hp = Math.min(p.hp || p.maxHp, p.maxHp);
+  updateAbilityButtons();
+}
+
+function updateAbilityButtons(){
+  if(!run) return;
+  const p = run.player;
+  const bSw = document.getElementById('btnShockwave');
+  const bDa = document.getElementById('btnDash');
+  if(bSw) bSw.classList.toggle('hidden', !p.hasShockwave);
+  if(bDa) bDa.classList.toggle('hidden', !p.hasDash);
 }
 
 function checkSynergies(){
@@ -711,17 +772,29 @@ function refreshSlotsRow(){
   const row = document.getElementById('slotsRow');
   row.innerHTML = '';
   const max = getMaxSlots();
-  for(let i=0;i<max;i++){
-    const id = run.mutations[i];
+  const ABS_MAX = 10;
+  for(let i=0;i<ABS_MAX;i++){
     const div = document.createElement('div');
-    if(id){
-      const mu = MUTATIONS[id];
-      div.className = 'slot' + (mu.hidden ? ' combo':'');
-      div.textContent = mu.icon;
-      div.title = mu.name;
+    if(i < max){
+      const id = run.mutations[i];
+      if(id){
+        const mu = MUTATIONS[id];
+        div.className = 'slot' + (mu.hidden ? ' combo':'');
+        div.textContent = mu.icon;
+        div.title = mu.name + ' — ' + mu.desc;
+      } else {
+        div.className = 'slot empty';
+        div.textContent = '';
+        div.title = 'Ranura vacía';
+      }
     } else {
-      div.className = 'slot empty';
-      div.textContent = '';
+      // Ranura aún bloqueada: falta subir de generación para desbloquearla.
+      // getMaxSlots() = clamp(2+generation,3,10) -> la ranura i se desbloquea cuando generation >= i-1
+      const neededGen = i - 1;
+      div.className = 'slot locked';
+      div.textContent = '🔒';
+      div.title = 'Ranura bloqueada — se desbloquea en Generación ' + neededGen;
+      div.onclick = ()=>{ notify('🔒 Ranura '+(i+1)+': se desbloquea en Generación '+neededGen+' (mueres/avanzas de generación para subir de nivel evolutivo global).', false); };
     }
     row.appendChild(div);
   }
@@ -782,7 +855,6 @@ function spawnEnemy(typeId, forcedPos){
 }
 
 function updateSpawns(dt){
-  if(run.bossSpawned && !run.bossDefeated) return;
   run.spawnTimer -= dt;
   if(run.spawnTimer<=0){
     const interval = clamp(3.2 - run.time/140, 0.9, 3.2);
@@ -791,13 +863,36 @@ function updateSpawns(dt){
     count = Math.max(1, Math.round(count * (run.spawnMult||1)));
     for(let i=0;i<count;i++) spawnEnemy(weightedEnemyType());
   }
-  if(!run.bossSpawned && run.time>=run.world.bossAt){
-    run.bossSpawned = true;
-    spawnEnemy(run.world.boss);
-    const b = document.getElementById('bossBanner');
-    b.textContent = '⚠ '+ENEMY_TYPES[run.world.boss].name.toUpperCase()+' HA DESPERTADO ⚠';
-    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+  if(!run.bossActive && run.time>=run.nextBossAt){
+    spawnBoss();
   }
+}
+
+function spawnBoss(){
+  const w = run.world;
+  const t = ENEMY_TYPES[w.boss];
+  const n = run.bossesDefeated + 1; // número de jefe que está por aparecer (1-based)
+  const isFinal = n >= BOSS_COUNT_TO_WIN;
+  const mult = 1 + (n-1)*0.35;
+  run.bossActive = true;
+  const ang = Math.random()*Math.PI*2, rad = rand(380,520);
+  const pos = {
+    x: clamp(run.player.x + Math.cos(ang)*rad, 40, WORLD_SIZE.w-40),
+    y: clamp(run.player.y + Math.sin(ang)*rad, 40, WORLD_SIZE.h-40),
+  };
+  run.enemies.push({
+    type:w.boss, name: t.name + (isFinal ? ' — JEFE FINAL' : ' #'+n), color:t.color,
+    r: t.r + (isFinal?6:0), behavior:t.behavior,
+    boss:true, finalBoss:isFinal, bossNumber:n, poisons:!!t.poisons, slows:!!t.slows,
+    x:pos.x, y:pos.y,
+    hp: t.hp*mult, maxHp: t.hp*mult,
+    atk: t.atk*mult, def: t.def*mult,
+    spd: t.spd, food: Math.round(t.food*mult*0.5),
+    atkCd:0, poisonStacks:0,
+  });
+  const b = document.getElementById('bossBanner');
+  b.textContent = '⚠ ' + (t.name + (isFinal?' — JEFE FINAL':' #'+n)).toUpperCase() + ' HA DESPERTADO ⚠';
+  b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
 }
 
 // =========================================================================
@@ -822,6 +917,7 @@ function dealDamage(attackerStats, target){
 }
 
 function enemyHitsPlayer(enemy, targetEntity, isPlayer){
+  if(isPlayer && run.player.invuln>0) return;
   const dodge = isPlayer ? run.player.dodge : 0.05;
   if(Math.random() < dodge) return;
   const def = isPlayer ? run.player.def : run.player.def*0.6;
@@ -840,10 +936,19 @@ function killEnemy(enemy){
   session.stats.totalKills++;
   run.pellets.push({x:enemy.x, y:enemy.y, food:enemy.food});
   if(enemy.boss){
-    run.bossDefeated = true;
+    run.bossActive = false;
+    run.bossesDefeated++;
+    run.nextBossAt = run.time + BOSS_INTERVAL;
+    const dnaGain = Math.round(rand(30,60) * (1 + (enemy.bossNumber-1)*0.4) * (run.dnaMult||1));
+    session.dna += dnaGain;
+    saveSession();
     notify('¡HAS DERROTADO A '+enemy.name.toUpperCase()+'!', true);
+    notify('🧬 +'+dnaGain+' ADN por el jefe', false, true);
     document.getElementById('bossHpWrap').classList.remove('show');
-    setTimeout(checkWorldCompletion, 600);
+    if(enemy.finalBoss){
+      run.bossDefeated = true;
+      setTimeout(checkWorldCompletion, 600);
+    }
   }
   if(run.player.sporeBurst){
     run.enemies.forEach(e=>{
@@ -861,11 +966,111 @@ function spawnClone(x,y){
 }
 
 // =========================================================================
+// 8b. HABILIDADES ACTIVAS: ONDA EXPANSIVA, DASH, VIRUS
+// =========================================================================
+function activateShockwave(){
+  if(!run || run.paused || run.ended || !run.running) return;
+  const p = run.player;
+  if(!p.hasShockwave || p.shockwaveCd>0) return;
+  const lvl = getMutationLevel('ondaExpansiva');
+  const radius = shockwaveRadius(lvl);
+  const dmgMult = shockwaveDmgMult(lvl);
+  p.shockwaveCd = 6;
+  run.shockwaveFx = { x:p.x, y:p.y, r:radius, timer:0.45, maxTimer:0.45 };
+  let hits = 0;
+  run.enemies.forEach(e=>{
+    if(dist(e,p) <= radius+e.r){ e.hp -= p.atk*dmgMult; hits++; }
+  });
+  notify('💥 Onda expansiva' + (hits? ' — '+hits+' impactos':''), false);
+}
+
+function activateDash(){
+  if(!run || run.paused || run.ended || !run.running) return;
+  const p = run.player;
+  if(!p.hasDash || p.dashCd>0) return;
+  const lvl = getMutationLevel('esquivaDash');
+  p.dashCd = dashCooldownFor(lvl);
+  let dx = run.joy.x, dy = run.joy.y;
+  const mag = Math.hypot(dx,dy);
+  if(mag<0.05){ dx=1; dy=0; } else { dx/=mag; dy/=mag; }
+  p.x = clamp(p.x + dx*160, p.r, WORLD_SIZE.w-p.r);
+  p.y = clamp(p.y + dy*160, p.r, WORLD_SIZE.h-p.r);
+  p.invuln = lvl>=5 ? 0.55 : 0.35;
+  notify('🌀 Dash de esquiva', false);
+}
+
+function fireVirus(){
+  const p = run.player;
+  const lvl = getMutationLevel('virusDisparo');
+  const cfg = virusConfigFor(lvl);
+  const targets = run.enemies.slice().sort((a,b)=>dist(a,p)-dist(b,p)).slice(0, cfg.n);
+  if(targets.length===0){
+    for(let i=0;i<cfg.n;i++){
+      const ang = Math.random()*Math.PI*2;
+      run.viruses.push({x:p.x, y:p.y, vx:Math.cos(ang)*220, vy:Math.sin(ang)*220, dmg:p.atk*1.4, r:6, life:2.5});
+    }
+  } else {
+    targets.forEach(t=>{
+      const d = dist(p,t)||1;
+      run.viruses.push({x:p.x, y:p.y, vx:(t.x-p.x)/d*260, vy:(t.y-p.y)/d*260, dmg:p.atk*1.4, r:6, life:2.5});
+    });
+  }
+  p.virusCd = cfg.cd;
+}
+
+function updateAbilities(dt){
+  const p = run.player;
+  if(p.shockwaveCd>0) p.shockwaveCd -= dt;
+  if(p.dashCd>0) p.dashCd -= dt;
+  if(p.invuln>0) p.invuln -= dt;
+
+  if(p.hasVirus){
+    p.virusCd -= dt;
+    if(p.virusCd<=0) fireVirus();
+  }
+
+  if(run.shockwaveFx){
+    run.shockwaveFx.timer -= dt;
+    if(run.shockwaveFx.timer<=0) run.shockwaveFx = null;
+  }
+
+  for(let i=run.viruses.length-1;i>=0;i--){
+    const v = run.viruses[i];
+    v.x += v.vx*dt; v.y += v.vy*dt; v.life -= dt;
+    let hit = false;
+    for(const e of run.enemies){
+      if(dist(v,e) < v.r+e.r){ e.hp -= v.dmg; hit = true; break; }
+    }
+    if(hit || v.life<=0 || v.x<0 || v.y<0 || v.x>WORLD_SIZE.w || v.y>WORLD_SIZE.h){
+      run.viruses.splice(i,1);
+    }
+  }
+
+  updateAbilityCds();
+}
+
+function updateAbilityCds(){
+  const p = run.player;
+  const btnSw = document.getElementById('btnShockwave');
+  const btnDa = document.getElementById('btnDash');
+  const cdSw = document.getElementById('cdShockwave');
+  const cdDa = document.getElementById('cdDash');
+  if(p.hasShockwave){
+    btnSw.disabled = p.shockwaveCd>0;
+    cdSw.textContent = p.shockwaveCd>0 ? Math.ceil(p.shockwaveCd)+'s' : '';
+  }
+  if(p.hasDash){
+    btnDa.disabled = p.dashCd>0;
+    cdDa.textContent = p.dashCd>0 ? Math.ceil(p.dashCd)+'s' : '';
+  }
+}
+
+// =========================================================================
 // 9. MUNDO COMPLETADO
 // =========================================================================
 function checkWorldCompletion(){
   if(!run || run.ended) return;
-  if(run.bossDefeated && run.mutations.length >= getMaxSlots()){
+  if(run.bossDefeated){
     run.running = false; run.ended = true; run.paused = true;
     const world = run.world;
     if(!session.completedWorlds.includes(world.id)) session.completedWorlds.push(world.id);
@@ -1019,6 +1224,7 @@ function update(dt){
   run.clones = run.clones.filter(c=>c.hp>0);
 
   updateSpawns(dt);
+  updateAbilities(dt);
   p.atkCooldown -= dt;
   run.enemies.forEach(e=>{
     e.atkCd -= dt;
@@ -1118,17 +1324,43 @@ function render(){
     if(!e.boss) drawHpBar(e.x,e.y-e.r-10,e.hp,e.maxHp, 26);
   });
 
+  run.viruses.forEach(v=>{
+    ctx.beginPath(); ctx.fillStyle = '#c6ff3d';
+    ctx.arc(v.x, v.y, v.r, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.strokeStyle = 'rgba(198,255,61,0.5)'; ctx.lineWidth=2;
+    ctx.arc(v.x, v.y, v.r+3, 0, 7); ctx.stroke();
+  });
+
+  if(run.shockwaveFx){
+    const fx = run.shockwaveFx;
+    const prog = 1 - (fx.timer/fx.maxTimer);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1-prog)*0.7;
+    ctx.strokeStyle = '#ffb454'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*Math.min(1,prog*1.6+0.2), 0, 7); ctx.stroke();
+    ctx.restore();
+  }
+
   drawCreature(run.player.x, run.player.y, run.player.r, playerColor(), 1);
+  if(run.player.invuln>0){
+    ctx.save();
+    ctx.strokeStyle = '#b06cff'; ctx.lineWidth = 3; ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.arc(run.player.x, run.player.y, run.player.r+6, 0, 7); ctx.stroke();
+    ctx.restore();
+  }
 
   ctx.restore();
 
   const bossWrap = document.getElementById('bossHpWrap');
+  const notifyLayer = document.getElementById('notifyLayer');
   if(bossRef){
     bossWrap.classList.add('show');
     document.getElementById('bossHpLabel').textContent = bossRef.name+'  '+Math.max(0,Math.ceil(bossRef.hp))+' / '+Math.ceil(bossRef.maxHp);
     document.getElementById('barBoss').style.width = clamp(bossRef.hp/bossRef.maxHp*100,0,100)+'%';
+    notifyLayer.classList.add('pushed');
   } else {
     bossWrap.classList.remove('show');
+    notifyLayer.classList.remove('pushed');
   }
 }
 
@@ -1183,7 +1415,7 @@ function triggerDeath(){
 
   const wrap = document.getElementById('inheritCards');
   wrap.innerHTML = '';
-  const candidates = run.mutations.length ? pickN(run.mutations, Math.min(3, run.mutations.length)) : [];
+  const candidates = run.mutations.slice();
   if(candidates.length===0){
     const btn = document.createElement('button');
     btn.className='bigBtn'; btn.textContent='CONTINUAR';
@@ -1285,9 +1517,14 @@ function openWorldMap(){
     div.className = 'worldCard ' + (!unlocked?'locked':'') + (run && run.world.id===id?' current':'');
     const statusText = done ? '✓ COMPLETADO — puedes volver a jugarlo' : (unlocked ? '● DESBLOQUEADO' : '🔒 BLOQUEADO');
     const statusClass = done?'status-done':(unlocked?'status-open':'status-locked');
+    const prevWorld = WORLDS[WORLD_ORDER[WORLD_ORDER.indexOf(id)-1]];
+    const unlockHint = (!unlocked && prevWorld)
+      ? `<div class="wSub" style="color:var(--danger)">Se desbloquea al completar ${prevWorld.icon} ${prevWorld.name}: derrota al 5º jefe (jefe final) — ${ENEMY_TYPES[prevWorld.boss].name}. Aparece un jefe cada ${BOSS_INTERVAL}s y cada uno otorga ADN.</div>`
+      : '';
     div.innerHTML = `<div class="wName">${w.icon} MUNDO ${id} — ${w.name}</div>
                       <div class="wSub">ADN: ${w.dnaRange[0]}–${w.dnaRange[1]} · Jefe: ${ENEMY_TYPES[w.boss].name}</div>
-                      <div class="wStatus ${statusClass}">${statusText}</div>`;
+                      <div class="wStatus ${statusClass}">${statusText}</div>
+                      ${unlockHint}`;
     if(unlocked){
       div.style.cursor='pointer';
       div.onclick = ()=>{
@@ -1325,9 +1562,10 @@ function openLab(){
     div.innerHTML = `
       <div class="lName"><span>${mu.icon} ${mu.name}</span><span class="lLevel">NIVEL ${lvl}/${MAX_LEVEL}</span></div>
       <div class="lDots">${dots}</div>
-      <div class="lDesc">${getLevelDesc(id, lvl)}</div>
+      <div class="lDesc" style="color:var(--text)">${mu.category==='sinergia' ? 'Sinergia' : 'Base'}: ${mu.desc}${mu.hidden?'<br><span style="color:var(--violet)">Combinación: '+mu.parts.map(p=>MUTATIONS[p]?MUTATIONS[p].name:p).join(' + ')+'</span>':''}</div>
+      <div class="lDesc"><b style="color:var(--amber)">Efecto de nivel actual:</b> ${getLevelDesc(id, lvl)}</div>
       <div class="lBtnRow">
-        <span class="lDesc">${cost ? 'Siguiente: '+getLevelDesc(id, lvl+1) : 'Nivel máximo alcanzado'}</span>
+        <span class="lDesc">${cost ? 'Siguiente nivel: '+getLevelDesc(id, lvl+1) : 'Nivel máximo alcanzado'}</span>
         <button class="lUpBtn" ${(!cost || session.dna<cost) ? 'disabled':''}>${cost ? 'MEJORAR · '+cost+' 🧬' : 'MAX'}</button>
       </div>`;
     const btn = div.querySelector('.lUpBtn');
@@ -1390,7 +1628,12 @@ window.addEventListener('mousemove', e=>{ if(mouseDown) setJoy(e.clientX-originX
 window.addEventListener('mouseup', ()=>{ if(mouseDown){ mouseDown=false; resetJoy(); } });
 
 const keys = {};
-window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true; updateKeyboardJoy(); });
+window.addEventListener('keydown', e=>{
+  keys[e.key.toLowerCase()]=true;
+  updateKeyboardJoy();
+  if(e.key.toLowerCase()==='e') activateShockwave();
+  if(e.key===' ') activateDash();
+});
 window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; updateKeyboardJoy(); });
 function updateKeyboardJoy(){
   if(!run) return;
@@ -1418,6 +1661,14 @@ document.getElementById('btnWorlds').onclick = openWorldMap;
 document.getElementById('btnCloseWorlds').onclick = ()=>{ document.getElementById('screenWorldMap').classList.add('hidden'); if(run) run.paused=false; };
 document.getElementById('btnLab').onclick = openLab;
 document.getElementById('btnCloseLab').onclick = ()=>{ document.getElementById('screenLab').classList.add('hidden'); if(run) run.paused=false; };
+document.getElementById('btnSkipMutation').onclick = ()=>{
+  document.getElementById('screenMutation').classList.add('hidden');
+  if(run){ run.paused = false; run.nextMutationAt = run.time + rand(18,24); }
+};
+document.getElementById('btnShockwave').addEventListener('touchstart', e=>{ e.preventDefault(); activateShockwave(); }, {passive:false});
+document.getElementById('btnShockwave').addEventListener('click', activateShockwave);
+document.getElementById('btnDash').addEventListener('touchstart', e=>{ e.preventDefault(); activateDash(); }, {passive:false});
+document.getElementById('btnDash').addEventListener('click', activateDash);
 
 // =========================================================================
 // INICIO
