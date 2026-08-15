@@ -245,6 +245,7 @@
         <button class="iconBtn" id="btnLab">LAB</button>
         <button class="iconBtn" id="btnStats">STATS</button>
         <button class="iconBtn" id="btnEnc">ENCICLOP.</button>
+        <button class="iconBtn" id="btnMenu" style="color:var(--danger); border-color:var(--danger);">MENÚ</button>
       </div>
     </div>
     <div class="hud-row"><span class="hud-label">VIDA</span><div class="bar-wrap"><div class="bar-fill hp" id="barHp"></div></div></div>
@@ -293,8 +294,15 @@
         <div class="hDesc">Algunas mutaciones desbloquean botones extra, como <b>Onda Expansiva</b> (💥, también con la tecla <b>E</b>): daño en área alrededor tuyo. El <b>Lanzador Viral</b> dispara solo, sin botón, cada pocos segundos. Todas consumen energía.</div>
       </div>
       <div class="helpBlock">
-        <div class="hTitle">🔋 Vida, energía y alimento</div>
-        <div class="hDesc">La <b>vida</b> baja al recibir golpes o al quedarte sin energía. La <b>energía</b> se gasta al moverte y usar habilidades, y se recupera comiendo o con mutaciones de regeneración. El <b>alimento</b> se acumula al comer y, al llenarse, reproduce a tu organismo (genera un clon).</div>
+        <div class="hTitle">🔋 Barras vitales (arriba)</div>
+        <div class="hDesc"><b>VIDA</b> (roja): si llega a 0, tu organismo muere. <b>ENERGÍA</b> (turquesa): se gasta al moverte, hacer dash y usar habilidades; si se agota, empiezas a perder vida lentamente. <b>ALIMENTO</b> (ámbar): sube al comer pellets; al llenarse por completo, tu organismo se reproduce y genera un clon nuevo.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">🖥️ Parte superior fija (HUD)</div>
+        <div class="hDesc">
+          <b>MUNDO n</b>: mundo en el que estás ahora. <b>GEN. n</b>: tu Generación evolutiva global (sube al morir; desbloquea más ranuras). <b>🧬 n</b>: tu ADN acumulado, permanente entre partidas. <b>Reloj</b>: tiempo transcurrido en esta partida.<br>
+          Debajo, la fila de <b>ranuras genéticas</b> (íconos de tus mutaciones activas; los 🔒 son ranuras aún bloqueadas). Justo debajo, el panel <b>HIJOS</b>: muestra cuántos clones tienes vivos, su barra de vida y qué mutaciones ha heredado cada uno (mantén presionado un clon para ver el detalle).
+        </div>
       </div>
       <div class="helpBlock">
         <div class="hTitle">🧬 Mutaciones y ranuras</div>
@@ -306,7 +314,7 @@
       </div>
       <div class="helpBlock">
         <div class="hTitle">🧫 Clones (hijos)</div>
-        <div class="hDesc">Al reproducirte generas clones que luchan a tu lado y heredan tus mutaciones con el tiempo. Los clones también comen: crecen de tamaño y pueden <b>reproducirse por su cuenta</b> al acumular suficiente alimento. Viajan contigo al cambiar de mundo, pero se pierden si mueres.</div>
+        <div class="hDesc">Al reproducirte generas clones que te <b>escoltan de cerca para protegerte</b> (no se alejan a perseguir enemigos) y <b>disparan a distancia automáticamente</b>, igual que tú. Heredan tus mutaciones con el tiempo, comen y crecen de tamaño, y pueden <b>reproducirse por su cuenta</b>. Viajan contigo al cambiar de mundo, pero se pierden si mueres.</div>
       </div>
       <div class="helpBlock">
         <div class="hTitle">📏 Crecimiento</div>
@@ -317,20 +325,26 @@
         <div class="hDesc">Cada mundo tiene su propio jefe, que aparece varias veces a intervalos fijos y cada vez más fuerte. Derrotar al <b>jefe final</b> (5ª aparición) completa el mundo, desbloquea el siguiente y te pide elegir 2 mutaciones para heredar.</div>
       </div>
       <div class="helpBlock">
-        <div class="hTitle">🗺️ Mapa evolutivo</div>
-        <div class="hDesc">Botón MUNDOS: elige a qué mundo desbloqueado ir, y activa <b>modificadores de reto</b> opcionales (más enemigos o menos comida) a cambio de más ADN.</div>
+        <div class="hTitle">🗺️ Dentro del Mapa evolutivo</div>
+        <div class="hDesc">Toca un mundo desbloqueado para viajar a él (tus clones te acompañan). Los <b>modificadores de reto</b> (arriba) son opcionales: los activas antes de entrar y aumentan la dificultad a cambio de más ADN.</div>
       </div>
       <div class="helpBlock">
-        <div class="hTitle">🧪 Laboratorio genético</div>
-        <div class="hDesc">Botón LAB: gasta el ADN que ganas al matar jefes y completar mundos para <b>subir de nivel</b> (hasta 5) tus mutaciones ya desbloqueadas, mejorando su efecto permanentemente entre partidas.</div>
+        <div class="hTitle">🧪 Dentro del Laboratorio</div>
+        <div class="hDesc">Cada mutación desbloqueada tiene 5 niveles. Mejorar un nivel cuesta ADN (el costo sube en cada nivel) y potencia su efecto de forma <b>permanente</b>, incluso en partidas futuras.</div>
       </div>
       <div class="helpBlock">
         <div class="hTitle">♻️ Generaciones y herencia</div>
         <div class="hDesc">Al morir, eliges 1 mutación para heredar en tu siguiente intento y subes de Generación (más ranuras genéticas). Tu ADN, mutaciones desbloqueadas, sinergias descubiertas y niveles de laboratorio son <b>permanentes</b>.</div>
       </div>
       <div class="helpBlock">
-        <div class="hTitle">📚 Otros menús</div>
-        <div class="hDesc">STATS muestra tus estadísticas actuales; ENCICLOPEDIA lista todas las mutaciones y sinergias conocidas y sin descubrir.</div>
+        <div class="hTitle">🔘 Botones de arriba a la derecha</div>
+        <div class="hDesc">
+          <b>MUNDOS</b>: abre el mapa evolutivo para elegir a qué mundo desbloqueado ir y activar modificadores de reto opcionales.<br>
+          <b>LAB</b>: abre el Laboratorio genético para gastar tu ADN y subir de nivel tus mutaciones ya desbloqueadas.<br>
+          <b>STATS</b>: muestra tus estadísticas actuales (vida, ataque, defensa, velocidad, etc.) de esta partida.<br>
+          <b>ENCICLOP.</b>: lista todas las mutaciones y sinergias del juego, descubiertas y sin descubrir.<br>
+          <b>MENÚ</b> (rojo): te regresa a esta pantalla principal. Pierdes el progreso de la vida actual (mutaciones equipadas, nivel evolutivo, clones), pero tu ADN, mutaciones desbloqueadas y niveles de Laboratorio se conservan siempre.
+        </div>
       </div>
     </div>
   </div>
@@ -1128,6 +1142,9 @@ function spawnClone(x,y){
   const c = {
     x: x!==undefined?x:run.player.x+rand(-30,30), y: y!==undefined?y:run.player.y+rand(-30,30),
     r:9, atkCd:0,
+    // Disparo a distancia propio del clon (misma mecánica que el jugador, ver fireCloneProjectile).
+    // Se escalona un poco al nacer para que no todos disparen exactamente el mismo instante.
+    rangedCd: rand(0,0.6),
     // Herencia progresiva: el clon empieza sin mutaciones y va adquiriendo, una por una,
     // las que tiene el organismo mientras siga vivo.
     mutationsGained: [], mutationGainCd: CLONE_MUTATION_INTERVAL,
@@ -1220,7 +1237,7 @@ function fireVirus(){
 // futura solo necesita tocar esos campos en su apply(m) para modificar el
 // comportamiento — no hace falta cambiar esta lógica.
 // =========================================================================
-const MAX_PROJECTILES = 14; // límite de proyectiles simultáneos en pantalla
+const MAX_PROJECTILES = 26; // límite de proyectiles simultáneos en pantalla (subido porque los clones también disparan)
 
 function fireProjectile(target){
   const p = run.player;
@@ -1244,6 +1261,34 @@ function fireProjectile(target){
       traveled:0,
       pierce: p.projectilePierce||0,
       hitSet: new Set(), // enemigos ya golpeados por este proyectil (para perforación futura)
+    });
+  }
+}
+
+// Disparo a distancia de un clon: usa exactamente la misma configuración que el
+// jugador (alcance, cooldown, velocidad, multidisparo si aplica), solo cambia el
+// punto de origen (la posición del clon) y el daño (basado en el ataque del clon).
+function fireCloneProjectile(c, target){
+  const p = run.player;
+  if(run.projectiles.length >= MAX_PROJECTILES) return;
+  let count = Math.max(1, Math.round(p.projectileCount||1));
+  if(run.mutations.includes('multidisparo')){
+    count = Math.max(count, multidisparoCount(getMutationLevel('multidisparo')));
+  }
+  const baseAng = Math.atan2(target.y-c.y, target.x-c.x);
+  for(let i=0;i<count && run.projectiles.length<MAX_PROJECTILES;i++){
+    const spread = count>1 ? (i-(count-1)/2)*0.16 : 0;
+    const ang = baseAng + spread;
+    const speed = p.projectileSpeed||380;
+    run.projectiles.push({
+      x:c.x, y:c.y,
+      vx:Math.cos(ang)*speed, vy:Math.sin(ang)*speed,
+      dmg: c.atk * (p.rangedDmgMult||0.6),
+      r:5,
+      maxRange: p.rangedRange||300,
+      traveled:0,
+      pierce: p.projectilePierce||0,
+      hitSet: new Set(),
     });
   }
 }
@@ -1521,7 +1566,7 @@ function update(dt){
     notify('Reproducción: nueva unidad generada', false);
   }
 
-  run.clones.forEach(c=>{
+  run.clones.forEach((c,cloneIdx)=>{
     if(p.sharedStats){
       c.maxHp = p.maxHp*0.9; c.hp = Math.min(c.hp, c.maxHp);
     } else {
@@ -1557,20 +1602,30 @@ function update(dt){
       spawnClone(c.x + rand(-25,25), c.y + rand(-25,25));
       notify('🧫 Un clon se ha reproducido', false);
     }
-    const target = nearestEnemy(c, 260);
-    if(target){
-      const d = dist(c,target);
-      if(d>36){ const dx=(target.x-c.x)/d, dy=(target.y-c.y)/d; c.x+=dx*p.spd*0.9*dt; c.y+=dy*p.spd*0.9*dt; }
-      c.atkCd -= dt;
-      if(d<=44 && c.atkCd<=0){
-        const atkStats = p.sharedStats ? p : {atk:c.atk, crit:c.crit, armorPierce:c.armorPierce, poison:c.poison, lifesteal:c.lifesteal};
-        dealDamage(atkStats, target);
-        c.atkCd = 0.9;
-        if(target.hp<=0){ removeEnemy(target); }
+    // Escolta: los clones se mantienen cerca del jugador para protegerlo, en vez de
+    // perseguir enemigos cuerpo a cuerpo. Cada uno guarda una distancia ligeramente
+    // distinta para no amontonarse todos en el mismo punto.
+    const followDist = 55 + (cloneIdx%3)*22;
+    const dp = dist(c,p) || 0.001;
+    if(dp > followDist){
+      const dx=(p.x-c.x)/dp, dy=(p.y-c.y)/dp;
+      c.x += dx*p.spd*0.95*dt; c.y += dy*p.spd*0.95*dt;
+    } else if(dp < followDist*0.5){
+      const dx=(c.x-p.x)/dp, dy=(c.y-p.y)/dp;
+      c.x += dx*p.spd*0.35*dt; c.y += dy*p.spd*0.35*dt;
+    }
+    c.x = clamp(c.x,10,WORLD_SIZE.w-10); c.y = clamp(c.y,10,WORLD_SIZE.h-10);
+
+    // Disparo automático a distancia — exactamente igual que el jugador: dispara al
+    // enemigo más cercano dentro de su alcance (mismo alcance, cooldown, velocidad
+    // y multidisparo si aplica), sin necesidad de acercarse cuerpo a cuerpo.
+    c.rangedCd -= dt;
+    if(c.rangedCd<=0){
+      const target = nearestEnemy(c, p.rangedRange||300);
+      if(target){
+        fireCloneProjectile(c, target);
+        c.rangedCd = p.rangedCooldown||1.1;
       }
-    } else {
-      const d = dist(c,p);
-      if(d>70){ const dx=(p.x-c.x)/d, dy=(p.y-c.y)/d; c.x+=dx*p.spd*dt; c.y+=dy*p.spd*dt; }
     }
   });
   run.clones = run.clones.filter(c=>c.hp>0);
@@ -2078,6 +2133,15 @@ document.getElementById('btnWorlds').onclick = openWorldMap;
 document.getElementById('btnCloseWorlds').onclick = ()=>{ document.getElementById('screenWorldMap').classList.add('hidden'); if(run) run.paused=false; };
 document.getElementById('btnLab').onclick = openLab;
 document.getElementById('btnCloseLab').onclick = ()=>{ document.getElementById('screenLab').classList.add('hidden'); if(run) run.paused=false; };
+document.getElementById('btnMenu').onclick = ()=>{
+  if(run && run.running && !run.ended){
+    const ok = confirm('¿Volver al menú principal? Perderás el progreso de esta vida (mutaciones equipadas, nivel evolutivo y clones actuales). Tu ADN, mutaciones desbloqueadas y niveles de Laboratorio son permanentes y se conservan.');
+    if(!ok) return;
+    run.running = false; run.paused = true; run.ended = true;
+  }
+  hideAllOverlays();
+  document.getElementById('screenStart').classList.remove('hidden');
+};
 document.getElementById('btnSkipMutation').onclick = ()=>{
   document.getElementById('screenMutation').classList.add('hidden');
   if(run){ run.paused = false; run.nextMutationAt = run.time + rand(18,24); }
