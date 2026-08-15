@@ -61,6 +61,20 @@
   .slot.locked{border-style:dotted; opacity:.35; color:var(--danger); cursor:pointer; font-size:12px;}
   .slot.combo{border-color:var(--violet); box-shadow:0 0 6px rgba(176,108,255,.5);}
 
+  #clonesPanelRow{display:flex; align-items:flex-start; gap:6px; padding:2px 0;}
+  #clonesRow{display:flex; gap:5px; overflow-x:auto; flex:1;}
+  .cloneChip{
+    flex-shrink:0; width:50px; border:1px solid var(--teal-dim); border-radius:6px;
+    background:#08181a; padding:3px 4px 4px 4px;
+  }
+  .cloneChipHpWrap{height:6px; background:#04141a; border-radius:3px; overflow:hidden; border:1px solid var(--line);}
+  .cloneChipHpFill{height:100%; width:0%;}
+  .cloneChipMuts{
+    font-size:9px; line-height:1.15; margin-top:3px; max-height:24px; overflow:hidden;
+    text-align:center; letter-spacing:1px;
+  }
+  .cloneChipEmpty{font-size:10px; color:var(--text-dim); white-space:nowrap; padding:4px 2px;}
+
   /* ---------- Canvas area ---------- */
   #canvasWrap{position:relative; flex:1; min-height:0; background:#020506;}
   canvas{display:block; width:100%; height:100%;}
@@ -203,6 +217,18 @@
   #bossHpWrap{position:absolute; top:6px; left:50%; transform:translateX(-50%); width:80%; max-width:400px; z-index:6; display:none;}
   #bossHpWrap.show{display:block;}
   #bossHpLabel{font-size:10px; color:var(--danger); text-align:center; margin-bottom:2px;}
+
+  .helpWrap{width:100%; max-width:360px; max-height:44vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px; text-align:left;}
+  .helpBlock{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:8px; padding:9px 11px;
+  }
+  .helpBlock .hTitle{font-size:12px; font-weight:bold; color:var(--teal); letter-spacing:.3px; display:flex; align-items:center; gap:6px;}
+  .helpBlock .hDesc{font-size:11px; color:var(--text-dim); margin-top:4px; line-height:1.5;}
+  .helpBlock .hDesc b{color:var(--text);}
+  .helpToggle{
+    background:transparent; color:var(--amber); border:1px solid var(--teal-dim);
+    padding:7px 14px; font-family:inherit; font-size:11px; border-radius:8px; letter-spacing:.5px;
+  }
 </style>
 </head>
 <body>
@@ -225,6 +251,10 @@
     <div class="hud-row"><span class="hud-label">ENERGÍA</span><div class="bar-wrap"><div class="bar-fill energy" id="barEnergy"></div></div></div>
     <div class="hud-row"><span class="hud-label">ALIMENTO</span><div class="bar-wrap"><div class="bar-fill food" id="barFood"></div></div></div>
     <div id="slotsRow"></div>
+    <div class="hud-row" id="clonesPanelRow">
+      <span class="hud-label" id="clonesLabel">HIJOS 0</span>
+      <div id="clonesRow"></div>
+    </div>
   </div>
 
   <div id="canvasWrap">
@@ -243,7 +273,66 @@
     <h1>PRIMER LATIDO</h1>
     <p class="sub">Eres un organismo microscópico evolucionando a través de 3 mundos hostiles. Consigue mutaciones, descubre sinergias y llena tus ranuras genéticas. Al morir, tu progreso permanente sobrevive.</p>
     <button class="bigBtn" id="btnStart">COMENZAR</button>
-    <p class="sub" style="max-width:300px">Arrastra el círculo inferior izquierdo para moverte. El ataque es automático contra enemigos cercanos. El botón 🌀 (o ESPACIO) hace un dash de esquiva: eres invulnerable durante el impulso. Otros superpoderes se activan al conseguir sus mutaciones.</p>
+    <button class="helpToggle" id="btnToggleHelp">📖 VER INSTRUCCIONES COMPLETAS</button>
+
+    <div class="helpWrap hidden" id="helpWrap">
+      <div class="helpBlock">
+        <div class="hTitle">🕹️ Movimiento y cámara</div>
+        <div class="hDesc">Arrastra el círculo semitransparente de la esquina inferior izquierda para moverte (o usa <b>WASD</b> / flechas en teclado). La cámara sigue a tu organismo dentro de un mapa mucho más grande que la pantalla.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">⚔️ Combate</div>
+        <div class="hDesc">El ataque cuerpo a cuerpo es <b>automático</b>: golpeas solo al acercarte a un enemigo. Además, tu organismo dispara <b>proyectiles automáticos</b> al enemigo más cercano dentro de su alcance, sin que tengas que hacer nada.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">🌀 Dash (esquiva)</div>
+        <div class="hDesc">Botón 🌀 o tecla <b>ESPACIO</b>. Impulso rápido en la dirección en la que te mueves; eres <b>invulnerable</b> durante el impulso. Tiene un cooldown corto y consume algo de energía.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">💥 Habilidades especiales</div>
+        <div class="hDesc">Algunas mutaciones desbloquean botones extra, como <b>Onda Expansiva</b> (💥, también con la tecla <b>E</b>): daño en área alrededor tuyo. El <b>Lanzador Viral</b> dispara solo, sin botón, cada pocos segundos. Todas consumen energía.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">🔋 Vida, energía y alimento</div>
+        <div class="hDesc">La <b>vida</b> baja al recibir golpes o al quedarte sin energía. La <b>energía</b> se gasta al moverte y usar habilidades, y se recupera comiendo o con mutaciones de regeneración. El <b>alimento</b> se acumula al comer y, al llenarse, reproduce a tu organismo (genera un clon).</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">🧬 Mutaciones y ranuras</div>
+        <div class="hDesc">Cada cierto tiempo eliges 1 de 3 mutaciones ofrecidas. Tienes un número limitado de <b>ranuras genéticas</b> (empiezas con 3, se desbloquean más al subir de Generación). Si están llenas, elegir una nueva mutación te pedirá reemplazar otra.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">⚠️ Sinergias ocultas</div>
+        <div class="hDesc">Ciertas combinaciones de mutaciones se fusionan automáticamente en una <b>sinergia</b> más poderosa (libera ranuras). No se muestran de antemano: descúbrelas jugando o revisa pistas en la Enciclopedia.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">🧫 Clones (hijos)</div>
+        <div class="hDesc">Al reproducirte generas clones que luchan a tu lado y heredan tus mutaciones con el tiempo. Los clones también comen: crecen de tamaño y pueden <b>reproducirse por su cuenta</b> al acumular suficiente alimento. Viajan contigo al cambiar de mundo, pero se pierden si mueres.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">📏 Crecimiento</div>
+        <div class="hDesc">Tanto tu organismo como tus clones aumentan de tamaño (varias etapas) según el alimento total que han comido a lo largo de la partida.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">👹 Jefes y mundos</div>
+        <div class="hDesc">Cada mundo tiene su propio jefe, que aparece varias veces a intervalos fijos y cada vez más fuerte. Derrotar al <b>jefe final</b> (5ª aparición) completa el mundo, desbloquea el siguiente y te pide elegir 2 mutaciones para heredar.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">🗺️ Mapa evolutivo</div>
+        <div class="hDesc">Botón MUNDOS: elige a qué mundo desbloqueado ir, y activa <b>modificadores de reto</b> opcionales (más enemigos o menos comida) a cambio de más ADN.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">🧪 Laboratorio genético</div>
+        <div class="hDesc">Botón LAB: gasta el ADN que ganas al matar jefes y completar mundos para <b>subir de nivel</b> (hasta 5) tus mutaciones ya desbloqueadas, mejorando su efecto permanentemente entre partidas.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">♻️ Generaciones y herencia</div>
+        <div class="hDesc">Al morir, eliges 1 mutación para heredar en tu siguiente intento y subes de Generación (más ranuras genéticas). Tu ADN, mutaciones desbloqueadas, sinergias descubiertas y niveles de laboratorio son <b>permanentes</b>.</div>
+      </div>
+      <div class="helpBlock">
+        <div class="hTitle">📚 Otros menús</div>
+        <div class="hDesc">STATS muestra tus estadísticas actuales; ENCICLOPEDIA lista todas las mutaciones y sinergias conocidas y sin descubrir.</div>
+      </div>
+    </div>
   </div>
 
   <div class="overlay hidden" id="screenMutation">
@@ -652,6 +741,7 @@ function startRun(worldId, carryClones){
   hideAllOverlays();
   updateWorldHud();
   refreshSlotsRow();
+  renderClonesPanel();
   updateAbilityButtons();
   document.getElementById('bossHpWrap').classList.remove('show');
 }
@@ -1687,6 +1777,31 @@ function updateHudBars(){
   const mm = Math.floor(run.time/60), ss = Math.floor(run.time%60);
   document.getElementById('timeTag').textContent = (mm<10?'0':'')+mm+':'+(ss<10?'0':'')+ss;
   document.getElementById('dnaTag').textContent = '🧬 ' + Math.floor(session.dna);
+  renderClonesPanel();
+}
+
+// Panel fijo del HUD que muestra, para cada clon vivo, su barra de vida y las
+// mutaciones que ha ido heredando — así siempre se sabe cuántos hijos hay y qué tienen.
+function renderClonesPanel(){
+  const label = document.getElementById('clonesLabel');
+  const row = document.getElementById('clonesRow');
+  if(!label || !row || !run) return;
+  label.textContent = 'HIJOS ' + run.clones.length;
+  if(run.clones.length===0){
+    row.innerHTML = '<span class="cloneChipEmpty">Aún sin clones — llena la barra de alimento</span>';
+    return;
+  }
+  row.innerHTML = run.clones.map((c,i)=>{
+    const pct = clamp(c.hp/c.maxHp,0,1)*100;
+    const barColor = pct>50 ? 'var(--teal)' : (pct>20 ? 'var(--amber)' : 'var(--danger)');
+    const muts = c.mutationsGained.map(id=> MUTATIONS[id] ? MUTATIONS[id].icon : '').join(' ');
+    const tip = 'Clon '+(i+1)+': '+Math.round(c.hp)+'/'+Math.round(c.maxHp)+' HP — '+
+      (c.mutationsGained.length ? c.mutationsGained.map(id=>MUTATIONS[id]?MUTATIONS[id].name:id).join(', ') : 'sin mutaciones aún');
+    return `<div class="cloneChip" title="${tip}">
+      <div class="cloneChipHpWrap"><div class="cloneChipHpFill" style="width:${pct}%; background:${barColor};"></div></div>
+      <div class="cloneChipMuts">${muts || '·'}</div>
+    </div>`;
+  }).join('');
 }
 
 // =========================================================================
@@ -1944,6 +2059,13 @@ function updateKeyboardJoy(){
 // =========================================================================
 // BOTONES
 // =========================================================================
+document.getElementById('btnToggleHelp').onclick = ()=>{
+  const wrap = document.getElementById('helpWrap');
+  const btn = document.getElementById('btnToggleHelp');
+  const willShow = wrap.classList.contains('hidden');
+  wrap.classList.toggle('hidden');
+  btn.textContent = willShow ? '📖 OCULTAR INSTRUCCIONES' : '📖 VER INSTRUCCIONES COMPLETAS';
+};
 document.getElementById('btnStart').onclick = ()=>{
   document.getElementById('screenStart').classList.add('hidden');
   startRun(session.currentWorld && session.unlockedWorlds.includes(session.currentWorld) ? session.currentWorld : 1);
