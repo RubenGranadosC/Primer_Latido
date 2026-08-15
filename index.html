@@ -295,7 +295,7 @@
       </div>
       <div class="helpBlock">
         <div class="hTitle">🔋 Barras vitales (arriba)</div>
-        <div class="hDesc"><b>VIDA</b> (roja): si llega a 0, tu organismo muere. <b>ENERGÍA</b> (turquesa): se gasta al moverte, hacer dash y usar habilidades; si se agota, empiezas a perder vida lentamente. <b>ALIMENTO</b> (ámbar): sube al comer pellets; al llenarse por completo, tu organismo se reproduce y genera un clon nuevo.</div>
+        <div class="hDesc"><b>VIDA</b> (roja): si llega a 0, tu organismo muere. <b>ENERGÍA</b> (turquesa): se gasta al moverte, hacer dash y usar habilidades; si se agota, empiezas a perder vida lentamente. <b>ALIMENTO</b> (ámbar): sube al comer pellets; al llenarse por completo, tu organismo se reproduce y genera un clon nuevo. Comer también te da un poco de <b>vida máxima permanente</b> (a ti y a tus clones) además de energía.</div>
       </div>
       <div class="helpBlock">
         <div class="hTitle">🖥️ Parte superior fija (HUD)</div>
@@ -706,6 +706,8 @@ function freshPlayer(){
     projectileSpeed:380, projectileCount:1, projectilePierce:0,
     // Crecimiento por alimento acumulado (afecta el tamaño visual/hitbox del organismo)
     foodEatenTotal:0, growthStage:0,
+    // Pequeño bono permanente de vida máxima que se gana al comer (ver FOOD_MAXHP_RATE)
+    bonusMaxHp:0,
   };
 }
 
@@ -790,7 +792,7 @@ function recalcStats(){
   const lvlMult = 1 + (run.level-1)*0.12;
   const genMult = 1 + (session.generation-1)*0.03;
 
-  p.maxHp = Math.round(BASE_STATS.hp * m.hp * lvlMult * genMult);
+  p.maxHp = Math.round(BASE_STATS.hp * m.hp * lvlMult * genMult) + Math.round(p.bonusMaxHp||0);
   p.atk   = +(BASE_STATS.atk * m.atk * lvlMult * genMult).toFixed(1);
   p.def   = +(BASE_STATS.def * m.def * lvlMult).toFixed(1);
   p.spd   = BASE_STATS.spd * m.spd;
@@ -1129,7 +1131,7 @@ function recalcCloneStats(c){
   const p = run.player;
   c.atk = +(p.atk*0.5*base.atk).toFixed(1);
   c.def = +(p.def*0.5*base.def).toFixed(1);
-  c.maxHp = Math.round(p.maxHp*0.5*base.hp);
+  c.maxHp = Math.round(p.maxHp*0.5*base.hp) + Math.round(c.bonusMaxHp||0);
   c.hp = Math.min(c.hp!==undefined?c.hp:c.maxHp, c.maxHp);
   c.crit = clamp(base.crit,0,0.75);
   c.armorPierce = clamp(base.armorPierce,0,0.7);
@@ -1151,6 +1153,8 @@ function spawnClone(x,y){
     atk:1, def:1, crit:0.05, armorPierce:0, poison:0, lifesteal:0,
     // Crecimiento por alimento acumulado propio del clon
     foodEatenTotal:0, growthStage:0,
+    // Pequeño bono permanente de vida máxima que el clon gana al comer
+    bonusMaxHp:0,
     // Reproducción propia del clon: acumula alimento y genera un nuevo clon al llenarse
     food:0, maxFood: CLONE_MAX_FOOD,
   };
@@ -1396,6 +1400,7 @@ const CLONE_BASE_R = 9;
 const GROWTH_FOOD_STEP = 45;       // alimento acumulado necesario por cada etapa de crecimiento
 const GROWTH_MAX_STAGE = 6;        // número máximo de etapas de crecimiento
 const GROWTH_RADIUS_STEP = 2.2;    // cuánto crece el radio del jugador por etapa
+const FOOD_MAXHP_RATE = 0.15;      // vida máxima permanente ganada por cada punto de alimento comido
 const CLONE_GROWTH_RADIUS_STEP = 1.3; // cuánto crece el radio de un clon por etapa
 const CLONE_MAX_FOOD = 70; // alimento que un clon necesita acumular para reproducirse
 const CLONE_REPRO_FOOD_RATE = 0.5; // fracción del alimento del pellet que aporta a la barra de reproducción del clon
@@ -1545,6 +1550,11 @@ function update(dt){
       p.energy = Math.min(p.maxEnergy, p.energy + pel.food*1.1*fm);
       p.food = Math.min(p.maxFood, p.food + pel.food*0.6*fm);
       feedAndGrow(p, pel.food*fm, PLAYER_BASE_R, GROWTH_RADIUS_STEP, true);
+      // Comer también aumenta un poco la vida máxima de forma permanente (y cura ese extra).
+      const hpGain = pel.food*FOOD_MAXHP_RATE*fm;
+      p.bonusMaxHp = (p.bonusMaxHp||0) + hpGain;
+      p.maxHp += hpGain;
+      p.hp = Math.min(p.maxHp, p.hp + hpGain);
       run.pellets.splice(i,1);
     }
   }
@@ -1584,14 +1594,18 @@ function update(dt){
       }
     }
     // Los clones también comen: si pasan cerca de un pellet de comida, lo consumen,
-    // recuperan algo de vida, acumulan alimento propio para crecer de tamaño y
-    // acumulan alimento de reproducción para poder generar nuevos clones.
+    // recuperan algo de vida, acumulan alimento propio para crecer de tamaño,
+    // ganan un poco de vida máxima permanente y acumulan alimento de reproducción.
     for(let i=run.pellets.length-1;i>=0;i--){
       const pel = run.pellets[i];
       if(dist(pel,c) < c.r+10){
         const fm = run.foodMult||1;
         c.hp = Math.min(c.maxHp, c.hp + pel.food*0.4*fm);
         feedAndGrow(c, pel.food*0.6*fm, CLONE_BASE_R, CLONE_GROWTH_RADIUS_STEP, false);
+        const hpGainC = pel.food*FOOD_MAXHP_RATE*0.6*fm;
+        c.bonusMaxHp = (c.bonusMaxHp||0) + hpGainC;
+        c.maxHp += hpGainC;
+        c.hp = Math.min(c.maxHp, c.hp + hpGainC);
         c.food = Math.min(c.maxFood, (c.food||0) + pel.food*CLONE_REPRO_FOOD_RATE*fm);
         run.pellets.splice(i,1);
         break;
