@@ -280,6 +280,7 @@
     <p class="sub">Eres un organismo microscópico evolucionando a través de 3 mundos hostiles. Elige un arma, consigue mutaciones, descubre sinergias y llena tus ranuras. Al morir, tu progreso permanente sobrevive.</p>
     <button class="bigBtn" id="btnStart">COMENZAR</button>
     <button class="helpToggle" id="btnToggleHelp">📖 VER INSTRUCCIONES COMPLETAS</button>
+    <button class="ghostBtn" id="btnResetGen" style="color:var(--danger); border-color:var(--danger);">♻️ REINICIAR GENERACIÓN A 1</button>
 
     <div class="helpWrap hidden" id="helpWrap">
       <div class="helpBlock">
@@ -348,6 +349,20 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="overlay hidden" id="screenConfirmReset">
+    <h2 style="color:var(--danger)">¿REINICIAR GENERACIÓN A 1?</h2>
+    <p class="sub">Esto reduce tus ranuras genéticas y de arma al mínimo (se vacían la próxima vez que juegues). Tu ADN, mutaciones desbloqueadas y niveles de Laboratorio NO se pierden.</p>
+    <button class="bigBtn" id="btnConfirmResetYes" style="background:var(--danger); color:#2a0006;">SÍ, REINICIAR</button>
+    <button class="ghostBtn" id="btnConfirmResetNo">CANCELAR</button>
+  </div>
+
+  <div class="overlay hidden" id="screenConfirmMenu">
+    <h2 style="color:var(--danger)">¿VOLVER AL MENÚ?</h2>
+    <p class="sub">Perderás el progreso de esta vida (armas, mutaciones equipadas, nivel evolutivo y clones actuales). Tu ADN, mutaciones desbloqueadas y niveles de Laboratorio son permanentes y se conservan.</p>
+    <button class="bigBtn" id="btnConfirmMenuYes" style="background:var(--danger); color:#2a0006;">SÍ, VOLVER AL MENÚ</button>
+    <button class="ghostBtn" id="btnConfirmMenuNo">CANCELAR</button>
   </div>
 
   <div class="overlay hidden" id="screenWeapon">
@@ -532,8 +547,6 @@ const MUTATIONS = {
     desc:'+22% defensa, inmune a ralentización enemiga.', apply(m){ m.def*=1.22; m.slowImmune=true; } },
   cristalizacion:{ name:'Cristalización', icon:'💎', category:'defensiva', world:3, hidden:false,
     desc:'+12% esquiva y +10% crítico (reflejos cristalinos).', apply(m){ m.dodge+=0.12; m.crit+=0.10; } },
-  virusDisparo:{ name:'Lanzador Viral', icon:'🦠', category:'especial', world:3, hidden:false, active:'virus',
-    desc:'Dispara virus automáticamente hacia los enemigos más cercanos cada pocos segundos. Subir de nivel reduce el cooldown y/o aumenta la cantidad de virus disparados.', apply(m){ m.hasVirus=true; } },
 
   // ---- Sinergias ocultas ----
   // Nota: varias sinergias siguen usando ids que ahora corresponden a ARMAS
@@ -591,7 +604,6 @@ const LEVEL_PERKS = {
   aletas: ['+6% velocidad','+12% velocidad','+18% velocidad','+24% velocidad','+30% velocidad y esquiva +8%'],
   divisioncelular: ['+3% prob. clon','+6% prob. clon','+9% prob. clon','+12% prob. clon','+15% prob. clon y clones más fuertes'],
   ondaExpansiva: ['Radio 150 y daño x2.2','Radio 190 y daño x2.3','Radio 230 y daño x2.4','Radio 270 y daño x2.5','Radio 320 y daño x2.8'],
-  virusDisparo: ['1 virus cada 5.0s','1 virus cada 4.2s','2 virus cada 4.2s','2 virus cada 3.4s','3 virus cada 3.0s'],
   multidisparo: ['2 proyectiles por ráfaga','2 proyectiles por ráfaga','3 proyectiles por ráfaga','3 proyectiles por ráfaga','4 proyectiles por ráfaga'],
 };
 function levelBonusMult(level){ return 1 + (level-1)*0.05; } // boost genérico aplicado a todas las mutaciones según su nivel
@@ -609,10 +621,6 @@ function getLevelDesc(id, lvl){
 // Escalado específico de las habilidades activas biológicas según su nivel de Laboratorio.
 function shockwaveRadius(lvl){ return [150,190,230,270,320][clamp(lvl,1,5)-1]; }
 function shockwaveDmgMult(lvl){ return [2.2,2.3,2.4,2.5,2.8][clamp(lvl,1,5)-1]; }
-function virusConfigFor(lvl){
-  const table = [{n:1,cd:5.0},{n:1,cd:4.2},{n:2,cd:4.2},{n:2,cd:3.4},{n:3,cd:3.0}];
-  return table[clamp(lvl,1,5)-1];
-}
 function multidisparoCount(lvl){ return [2,2,3,3,4][clamp(lvl,1,5)-1]; } // total de proyectiles por ráfaga con la mutación activa
 
 // =========================================================================
@@ -662,7 +670,7 @@ const WORLDS = {
       dnaRange:[300,600] },
   3:{ id:3, name:'Era Glacial', icon:'❄️', bg:'#03070a', grid:'rgba(143,220,255,0.07)', border:'rgba(143,220,255,0.4)',
       enemies:['presa','ice_crawler','frost_bat','glacier_golem','wisp_freeze'], boss:'jefeGlacial', bossAt:270,
-      mutationPool:['reflejos','placasoseas','hibernacion','sangregelida','pielaislante','cristalizacion','virusDisparo'],
+      mutationPool:['reflejos','placasoseas','hibernacion','sangregelida','pielaislante','cristalizacion'],
       dnaRange:[600,1200] },
 };
 const WORLD_ORDER = [1,2,3];
@@ -734,8 +742,8 @@ function freshPlayer(){
     energy:100, maxEnergy:100, energyEff:1, energyRegen:0,
     food:0, maxFood:100, repro:1,
     regen:0, atkCooldown:0, slowTimer:0,
-    hasShockwave:false, hasVirus:false,
-    shockwaveCd:0, virusCd:0, invuln:0,
+    hasShockwave:false,
+    shockwaveCd:0, invuln:0,
     // Dash / esquive: mecánica base disponible desde el inicio (no es mutación)
     dashCd:0, dashTimer:0, dashing:false, dashDirX:1, dashDirY:0, lastDirX:1, lastDirY:0,
     // Armas: cooldown propio por arma equipada (ver WEAPON_DEFS / run.weapons)
@@ -765,7 +773,7 @@ function startRun(worldId, carryClones){
     mutations: startMutations.filter(id=>MUTATIONS[id]),
     weapons: [], // se elige la primera arma justo después de startRun()
     nextWeaponOfferAt: 45,
-    clones: [], enemies: [], pellets: [], viruses: [], projectiles: [], dashTrail: [], shockwaveFx:null,
+    clones: [], enemies: [], pellets: [], projectiles: [], dashTrail: [], shockwaveFx:null, lightningFx: [],
     spawnTimer:2.2, ambientFoodTimer:3,
     nextMutationAt: 14,
     bossActive:false, bossDefeated:false, bossesDefeated:0, bossSpawnCount:0, finalBossSpawned:false, nextBossAt: BOSS_INTERVAL,
@@ -814,7 +822,7 @@ function newStatAccumulator(){
            reflect:0, sharedStats:false, thorns:0, chill:false, chain:false,
            slowImmune:false, acid:false, cloneChance:0, cloneSpeedMult:1,
            energyEff:1, energyRegen:0, repro:1, regen:0,
-           hasShockwave:false, hasVirus:false };
+           hasShockwave:false };
 }
 
 function recalcStats(){
@@ -842,7 +850,7 @@ function recalcStats(){
     chill:m.chill, chain:m.chain, slowImmune:m.slowImmune, acid:m.acid,
     cloneChance:m.cloneChance, cloneSpeedMult:m.cloneSpeedMult,
     energyEff:m.energyEff, energyRegen:m.energyRegen, repro:m.repro, regen:m.regen,
-    hasShockwave:m.hasShockwave, hasVirus:m.hasVirus,
+    hasShockwave:m.hasShockwave,
   });
   p.maxEnergy = BASE_STATS.maxEnergy;
   p.maxFood = BASE_STATS.maxFood;
@@ -1080,6 +1088,91 @@ function showWeaponPick(isInitial){
   document.getElementById('screenWeapon').classList.remove('hidden');
 }
 
+// Recompensa de arma al derrotar un jefe (no final): si hay ranura libre se añade
+// directamente; si las 3 ranuras están llenas, se ofrece reemplazar una existente.
+function showWeaponPostBoss(){
+  if(!run || run.ended) return;
+  run.paused = true;
+  const owned = new Set(run.weapons);
+  const pool = WEAPON_IDS.filter(id=>!owned.has(id));
+  if(pool.length===0){ run.paused=false; return; } // ya tiene todas las armas posibles
+  const options = pickN(pool, Math.min(3, pool.length));
+  document.getElementById('weaponScreenTitle').textContent = '¡JEFE DERROTADO! ¿CAMBIAR DE ARMA?';
+  document.getElementById('weaponScreenSub').textContent = 'Elige un arma nueva para tu arsenal. Después decides si la añades a una ranura libre o reemplazas una de tus armas actuales.';
+  const wrap = document.getElementById('weaponCards');
+  wrap.innerHTML = '';
+  options.forEach(id=>{
+    const wd = WEAPON_DEFS[id];
+    const card = document.createElement('div');
+    card.className = 'card weaponCard';
+    card.innerHTML = `<div class="cName"><span>${wd.icon} ${wd.name}</span></div>
+                       <div class="cCat">${wd.category}</div>
+                       <div class="cDesc">${wd.desc}</div>`;
+    // Siempre se ofrece la posibilidad de reemplazar, incluso si hay ranuras libres.
+    card.onclick = ()=>{ showWeaponReplaceScreen(id); };
+    wrap.appendChild(card);
+  });
+  const skipBtn = document.getElementById('btnSkipWeapon');
+  skipBtn.classList.remove('hidden');
+  skipBtn.onclick = ()=>{
+    document.getElementById('screenWeapon').classList.add('hidden');
+    run.paused = false;
+  };
+  document.getElementById('screenWeapon').classList.remove('hidden');
+}
+
+// Pantalla de reemplazo: elegir cuál de las armas equipadas se cambia por la nueva,
+// o (si hay ranura libre) añadirla sin quitar ninguna.
+function showWeaponReplaceScreen(newId){
+  const wd = WEAPON_DEFS[newId];
+  const hasSpace = run.weapons.length < weaponMaxSlots();
+  document.getElementById('weaponScreenTitle').textContent = '¿QUÉ HACER CON ' + wd.icon + ' ' + wd.name.toUpperCase() + '?';
+  document.getElementById('weaponScreenSub').textContent = hasSpace
+    ? 'Puedes añadirla a una ranura libre o reemplazar una de tus armas actuales.'
+    : 'Tus ranuras están llenas: elige qué arma reemplazar, o cancela.';
+  const wrap = document.getElementById('weaponCards');
+  wrap.innerHTML = '';
+  if(hasSpace){
+    const addCard = document.createElement('div');
+    addCard.className = 'card weaponCard';
+    addCard.style.borderColor = 'var(--dna)';
+    addCard.innerHTML = `<div class="cName">➕ AÑADIR A RANURA LIBRE</div><div class="cDesc">Conserva todas tus armas actuales y suma ${wd.icon} ${wd.name}.</div>`;
+    addCard.onclick = ()=>{
+      run.weapons.push(newId);
+      run.player.weaponCd[newId] = 0;
+      refreshWeaponsRow();
+      document.getElementById('screenWeapon').classList.add('hidden');
+      run.paused = false;
+      notify(wd.icon+' Arma equipada: '+wd.name, false);
+    };
+    wrap.appendChild(addCard);
+  }
+  run.weapons.forEach(oldId=>{
+    const owd = WEAPON_DEFS[oldId];
+    const card = document.createElement('div');
+    card.className = 'card weaponCard';
+    card.innerHTML = `<div class="cName">🔁 Reemplazar ${owd.icon} ${owd.name}</div><div class="cDesc">${owd.desc}</div>`;
+    card.onclick = ()=>{
+      const i = run.weapons.indexOf(oldId);
+      if(i>=0) run.weapons.splice(i,1);
+      run.weapons.push(newId);
+      run.player.weaponCd[newId] = 0;
+      refreshWeaponsRow();
+      document.getElementById('screenWeapon').classList.add('hidden');
+      run.paused = false;
+      notify(wd.icon+' Cambiaste '+owd.name+' por '+wd.name, false);
+    };
+    wrap.appendChild(card);
+  });
+  const skipBtn = document.getElementById('btnSkipWeapon');
+  skipBtn.classList.remove('hidden');
+  skipBtn.onclick = ()=>{
+    document.getElementById('screenWeapon').classList.add('hidden');
+    run.paused = false;
+  };
+  document.getElementById('screenWeapon').classList.remove('hidden');
+}
+
 // =========================================================================
 // 7. SPAWNS
 // =========================================================================
@@ -1221,6 +1314,10 @@ function killEnemy(enemy){
     if(enemy.finalBoss){
       run.bossDefeated = true;
       setTimeout(checkWorldCompletion, 600);
+    } else {
+      // Cada jefe (no final) derrotado abre una ranura de arma: si hay espacio libre
+      // se añade directamente; si las 3 ranuras están llenas, se ofrece reemplazar.
+      setTimeout(showWeaponPostBoss, 700);
     }
   }
   if(run.player.sporeBurst){
@@ -1273,7 +1370,22 @@ function spawnClone(x,y){
   c.hp = c.maxHp;
   applyGrowthRadius(c, CLONE_BASE_R, CLONE_GROWTH_RADIUS_STEP);
   run.clones.push(c);
+  gainGenerationFromClone();
 }
+
+// Generar un clon avanza la Generación evolutiva global de inmediato (no hay que
+// esperar a morir): esto desbloquea una ranura genética extra al instante.
+function gainGenerationFromClone(){
+  session.generation++;
+  saveSession();
+  if(run){
+    refreshSlotsRow();
+    refreshWeaponsRow();
+    updateWorldHud();
+  }
+  notify('🧬 ¡Nueva generación! GEN. '+session.generation+' — ranura genética desbloqueada', false, true);
+}
+
 
 // Elige qué arma usa un clon para atacar: prioriza la primera arma a distancia
 // equipada (más seguro para una escolta); si el jugador solo tiene armas cuerpo
@@ -1336,6 +1448,10 @@ function fireWeaponProjectile(wid, wd, ox, oy, atkStat, target){
 }
 
 function updateProjectiles(dt){
+  for(let i=run.lightningFx.length-1;i>=0;i--){
+    run.lightningFx[i].life -= dt;
+    if(run.lightningFx[i].life<=0) run.lightningFx.splice(i,1);
+  }
   for(let i=run.projectiles.length-1;i>=0;i--){
     const pr = run.projectiles[i];
     const stepX = pr.vx*dt, stepY = pr.vy*dt;
@@ -1353,8 +1469,15 @@ function updateProjectiles(dt){
           run.enemies.forEach(o=>{ if(o!==e && dist(o,e)<=pr.aoe){ o.hp -= pr.dmg*0.6; } });
         }
         if(pr.chainFx){
+          // Destello eléctrico en el punto de impacto inicial.
+          run.lightningFx.push({x1:pr.x, y1:pr.y, x2:e.x, y2:e.y, life:0.22, maxLife:0.22});
           const other = run.enemies.find(o=>o!==e && !pr.hitSet.has(o) && dist(o,e)<140);
-          if(other){ other.hp -= pr.dmg*0.5; pr.hitSet.add(other); }
+          if(other){
+            other.hp -= pr.dmg*0.5;
+            pr.hitSet.add(other);
+            // Rayo animado que salta visualmente de un enemigo al siguiente.
+            run.lightningFx.push({x1:e.x, y1:e.y, x2:other.x, y2:other.y, life:0.3, maxLife:0.3});
+          }
         }
         if(pr.pierce>0){ pr.pierce--; } else { consumed = true; }
         break;
@@ -1369,11 +1492,10 @@ function updateProjectiles(dt){
 }
 
 // =========================================================================
-// 8c. HABILIDADES ACTIVAS BIOLÓGICAS: ONDA EXPANSIVA, DASH, VIRUS
+// 8c. HABILIDADES ACTIVAS BIOLÓGICAS: ONDA EXPANSIVA, DASH
 // =========================================================================
 const SHOCKWAVE_ENERGY_COST = 22; // energía que consume activar la onda expansiva
 const DASH_ENERGY_COST = 16;      // energía que consume activar el dash
-const VIRUS_ENERGY_COST = 10;     // energía que consume cada ráfaga del lanzador viral
 
 function activateShockwave(){
   if(!run || run.paused || run.ended || !run.running) return;
@@ -1414,26 +1536,6 @@ function activateDash(){
   notify('🌀 ¡Dash!', false);
 }
 
-function fireVirus(){
-  const p = run.player;
-  const lvl = getMutationLevel('virusDisparo');
-  const cfg = virusConfigFor(lvl);
-  const targets = run.enemies.slice().sort((a,b)=>dist(a,p)-dist(b,p)).slice(0, cfg.n);
-  if(targets.length===0){
-    for(let i=0;i<cfg.n;i++){
-      const ang = Math.random()*Math.PI*2;
-      run.viruses.push({x:p.x, y:p.y, vx:Math.cos(ang)*220, vy:Math.sin(ang)*220, dmg:p.atk*1.4, r:6, life:2.5});
-    }
-  } else {
-    targets.forEach(t=>{
-      const d = dist(p,t)||1;
-      run.viruses.push({x:p.x, y:p.y, vx:(t.x-p.x)/d*260, vy:(t.y-p.y)/d*260, dmg:p.atk*1.4, r:6, life:2.5});
-    });
-  }
-  p.energy = Math.max(0, p.energy - VIRUS_ENERGY_COST);
-  p.virusCd = cfg.cd;
-}
-
 function updateAbilities(dt){
   const p = run.player;
   if(p.shockwaveCd>0) p.shockwaveCd -= dt;
@@ -1448,26 +1550,9 @@ function updateAbilities(dt){
     if(run.dashTrail[i].life<=0) run.dashTrail.splice(i,1);
   }
 
-  if(p.hasVirus){
-    p.virusCd -= dt;
-    if(p.virusCd<=0 && p.energy>=VIRUS_ENERGY_COST) fireVirus();
-  }
-
   if(run.shockwaveFx){
     run.shockwaveFx.timer -= dt;
     if(run.shockwaveFx.timer<=0) run.shockwaveFx = null;
-  }
-
-  for(let i=run.viruses.length-1;i>=0;i--){
-    const v = run.viruses[i];
-    v.x += v.vx*dt; v.y += v.vy*dt; v.life -= dt;
-    let hit = false;
-    for(const e of run.enemies){
-      if(dist(v,e) < v.r+e.r){ e.hp -= v.dmg; hit = true; break; }
-    }
-    if(hit || v.life<=0 || v.x<0 || v.y<0 || v.x>WORLD_SIZE.w || v.y>WORLD_SIZE.h){
-      run.viruses.splice(i,1);
-    }
   }
 
   updateAbilityCds();
@@ -1834,15 +1919,37 @@ function render(){
     if(!e.boss) drawHpBar(e.x,e.y-e.r-10,e.hp,e.maxHp, 26);
   });
 
-  run.viruses.forEach(v=>{
-    ctx.beginPath(); ctx.fillStyle = '#c6ff3d';
-    ctx.arc(v.x, v.y, v.r, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.strokeStyle = 'rgba(198,255,61,0.5)'; ctx.lineWidth=2;
-    ctx.arc(v.x, v.y, v.r+3, 0, 7); ctx.stroke();
-  });
-
-  // Proyectiles de armas: pequeña cápsula orientada, coloreada según el arma que la disparó.
+  // Proyectiles de armas: cápsula orientada, salvo Bioelectricidad que vuela como un rayo.
   run.projectiles.forEach(pr=>{
+    if(pr.chainFx){
+      // Rayo en vuelo: segmento en zigzag detrás del proyectil, con resplandor eléctrico.
+      const ang = Math.atan2(pr.vy, pr.vx);
+      const boltLen = 34;
+      const bx = pr.x - Math.cos(ang)*boltLen;
+      const by = pr.y - Math.sin(ang)*boltLen;
+      ctx.save();
+      ctx.strokeStyle = '#8fefff';
+      ctx.lineWidth = 2.4;
+      ctx.shadowColor = '#5cd9ff';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      const segs = 3;
+      for(let s=1; s<segs; s++){
+        const t = s/segs;
+        const mx = bx + (pr.x-bx)*t + (Math.random()-0.5)*8;
+        const my = by + (pr.y-by)*t + (Math.random()-0.5)*8;
+        ctx.lineTo(mx, my);
+      }
+      ctx.lineTo(pr.x, pr.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.fillStyle = '#e8ffff';
+      ctx.arc(pr.x, pr.y, pr.r*0.9, 0, 7);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
     const ang = Math.atan2(pr.vy, pr.vx);
     ctx.save();
     ctx.translate(pr.x, pr.y);
@@ -1851,6 +1958,30 @@ function render(){
     ctx.beginPath(); ctx.moveTo(-pr.r*3.2,0); ctx.lineTo(-pr.r*1.1,0); ctx.stroke();
     ctx.beginPath(); ctx.fillStyle = pr.color||'#5cd9ff';
     ctx.ellipse(0,0, pr.r*1.3, pr.r*0.75, 0, 0, 7); ctx.fill();
+    ctx.restore();
+  });
+
+  // Rayos de Bioelectricidad: zigzag animado entre el impacto y el enemigo encadenado.
+  run.lightningFx.forEach(fx=>{
+    const prog = clamp(fx.life/fx.maxLife, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = prog;
+    ctx.strokeStyle = '#5cd9ff';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#5cd9ff';
+    ctx.shadowBlur = 8;
+    const dx = fx.x2-fx.x1, dy = fx.y2-fx.y1;
+    const segs = 5;
+    ctx.beginPath();
+    ctx.moveTo(fx.x1, fx.y1);
+    for(let s=1; s<segs; s++){
+      const t = s/segs;
+      const nx = fx.x1 + dx*t + (Math.random()-0.5)*14;
+      const ny = fx.y1 + dy*t + (Math.random()-0.5)*14;
+      ctx.lineTo(nx, ny);
+    }
+    ctx.lineTo(fx.x2, fx.y2);
+    ctx.stroke();
     ctx.restore();
   });
 
@@ -2002,7 +2133,7 @@ function triggerDeath(){
 // 12. UI AUXILIAR
 // =========================================================================
 function hideAllOverlays(){
-  ['screenWeapon','screenMutation','screenReplace','screenDeath','screenWorldComplete','screenInherit2','screenWorldMap','screenLab','screenStats','screenEnc'].forEach(id=>{
+  ['screenWeapon','screenMutation','screenReplace','screenDeath','screenWorldComplete','screenInherit2','screenWorldMap','screenLab','screenStats','screenEnc','screenConfirmMenu','screenConfirmReset'].forEach(id=>{
     document.getElementById(id).classList.add('hidden');
   });
 }
@@ -2243,6 +2374,20 @@ document.getElementById('btnToggleHelp').onclick = ()=>{
   wrap.classList.toggle('hidden');
   btn.textContent = willShow ? '📖 OCULTAR INSTRUCCIONES' : '📖 VER INSTRUCCIONES COMPLETAS';
 };
+document.getElementById('btnResetGen').onclick = ()=>{
+  document.getElementById('screenConfirmReset').classList.remove('hidden');
+};
+document.getElementById('btnConfirmResetYes').onclick = ()=>{
+  session.generation = 1;
+  session.inheritSingle = null;
+  session.inheritDouble = null;
+  saveSession();
+  document.getElementById('screenConfirmReset').classList.add('hidden');
+  notify('♻️ Generación reiniciada a 1. Ranuras genéticas y de arma al mínimo.', false);
+};
+document.getElementById('btnConfirmResetNo').onclick = ()=>{
+  document.getElementById('screenConfirmReset').classList.add('hidden');
+};
 document.getElementById('btnStart').onclick = ()=>{
   document.getElementById('screenStart').classList.add('hidden');
   startRun(session.currentWorld && session.unlockedWorlds.includes(session.currentWorld) ? session.currentWorld : 1);
@@ -2257,12 +2402,21 @@ document.getElementById('btnLab').onclick = openLab;
 document.getElementById('btnCloseLab').onclick = ()=>{ document.getElementById('screenLab').classList.add('hidden'); if(run) run.paused=false; };
 document.getElementById('btnMenu').onclick = ()=>{
   if(run && run.running && !run.ended){
-    const ok = confirm('¿Volver al menú principal? Perderás el progreso de esta vida (armas, mutaciones equipadas, nivel evolutivo y clones actuales). Tu ADN, mutaciones desbloqueadas y niveles de Laboratorio son permanentes y se conservan.');
-    if(!ok) return;
-    run.running = false; run.paused = true; run.ended = true;
+    if(run) run.paused = true;
+    document.getElementById('screenConfirmMenu').classList.remove('hidden');
+    return;
   }
   hideAllOverlays();
   document.getElementById('screenStart').classList.remove('hidden');
+};
+document.getElementById('btnConfirmMenuYes').onclick = ()=>{
+  if(run){ run.running = false; run.paused = true; run.ended = true; }
+  hideAllOverlays();
+  document.getElementById('screenStart').classList.remove('hidden');
+};
+document.getElementById('btnConfirmMenuNo').onclick = ()=>{
+  document.getElementById('screenConfirmMenu').classList.add('hidden');
+  if(run) run.paused = false;
 };
 document.getElementById('btnSkipMutation').onclick = ()=>{
   document.getElementById('screenMutation').classList.add('hidden');
