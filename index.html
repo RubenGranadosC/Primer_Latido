@@ -63,19 +63,28 @@
   .slot.combo{border-color:var(--violet); box-shadow:0 0 6px rgba(176,108,255,.5);}
   .slot.weapon{border-color:var(--weapon); box-shadow:0 0 5px rgba(255,154,92,.4);}
 
-  #clonesPanelRow{display:flex; align-items:flex-start; gap:6px; padding:2px 0;}
-  #clonesRow{display:flex; gap:5px; overflow-x:auto; flex:1;}
+  #midHudRow{display:flex; gap:8px; align-items:flex-start;}
+  #leftStatsCol{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;}
+  #clonesPanelRow{
+    flex-shrink:0; width:118px; display:flex; flex-direction:column; gap:3px;
+    border-left:1px solid var(--line); padding-left:8px;
+  }
+  #clonesRow{
+    display:flex; flex-direction:column; gap:4px; overflow-y:auto; overflow-x:hidden;
+    max-height:64px;
+  }
   .cloneChip{
-    flex-shrink:0; width:50px; border:1px solid var(--teal-dim); border-radius:6px;
+    flex-shrink:0; width:100%; border:1px solid var(--teal-dim); border-radius:6px;
     background:#08181a; padding:3px 4px 4px 4px;
   }
-  .cloneChipHpWrap{height:6px; background:#04141a; border-radius:3px; overflow:hidden; border:1px solid var(--line);}
+  .cloneChipHpWrap, .cloneChipFoodWrap{height:5px; background:#04141a; border-radius:3px; overflow:hidden; border:1px solid var(--line); margin-top:2px;}
   .cloneChipHpFill{height:100%; width:0%;}
+  .cloneChipFoodFill{height:100%; width:0%; background:linear-gradient(90deg,#ffb454,#ffd394);}
   .cloneChipMuts{
     font-size:9px; line-height:1.15; margin-top:3px; max-height:24px; overflow:hidden;
     text-align:center; letter-spacing:1px;
   }
-  .cloneChipEmpty{font-size:10px; color:var(--text-dim); white-space:nowrap; padding:4px 2px;}
+  .cloneChipEmpty{font-size:10px; color:var(--text-dim); white-space:nowrap; padding:4px 2px; text-align:left;}
 
   /* ---------- Canvas area ---------- */
   #canvasWrap{position:relative; flex:1; min-height:0; background:#020506;}
@@ -205,6 +214,10 @@
   .lDots{display:flex; gap:3px;}
   .lDot{width:8px; height:8px; border-radius:50%; background:#123033;}
   .lDot.filled{background:var(--dna);}
+  .labSectionHeader{
+    width:100%; max-width:340px; text-align:left; font-size:11px; letter-spacing:1px;
+    color:var(--amber); margin-top:4px; text-transform:uppercase; border-bottom:1px dashed var(--line); padding-bottom:4px;
+  }
 
   #bossBanner{
     position:absolute; top:40%; left:50%; transform:translate(-50%,-50%);
@@ -255,11 +268,15 @@
     <div class="hud-row"><span class="hud-label">VIDA</span><div class="bar-wrap"><div class="bar-fill hp" id="barHp"></div></div></div>
     <div class="hud-row"><span class="hud-label">ENERGÍA</span><div class="bar-wrap"><div class="bar-fill energy" id="barEnergy"></div></div></div>
     <div class="hud-row"><span class="hud-label">ALIMENTO</span><div class="bar-wrap"><div class="bar-fill food" id="barFood"></div></div></div>
-    <div class="hud-row"><span class="hud-label" style="color:var(--weapon)">ARMAS</span><div id="weaponsRow"></div></div>
-    <div class="hud-row"><span class="hud-label">GENÉTICA</span><div id="slotsRow"></div></div>
-    <div class="hud-row" id="clonesPanelRow">
-      <span class="hud-label" id="clonesLabel">HIJOS 0</span>
-      <div id="clonesRow"></div>
+    <div id="midHudRow">
+      <div id="leftStatsCol">
+        <div class="hud-row"><span class="hud-label" style="color:var(--weapon)">ARMAS</span><div id="weaponsRow"></div></div>
+        <div class="hud-row"><span class="hud-label">GENÉTICA</span><div id="slotsRow"></div></div>
+      </div>
+      <div id="clonesPanelRow">
+        <span class="hud-label" id="clonesLabel">HIJOS 0</span>
+        <div id="clonesRow"></div>
+      </div>
     </div>
   </div>
 
@@ -289,7 +306,7 @@
       </div>
       <div class="helpBlock">
         <div class="hTitle">🗡️ Armas</div>
-        <div class="hDesc">Al empezar cada partida eliges <b>un arma</b> entre varias opciones (cuerpo a cuerpo o a distancia). Cada arma ataca de forma completamente automática con su propio patrón: alcance, velocidad y efecto. Puedes desbloquear hasta <b>3 ranuras de arma</b>; todas las armas equipadas atacan a la vez, sin reemplazarse.</div>
+        <div class="hDesc">Al empezar cada partida eliges <b>un arma</b> entre varias opciones (cuerpo a cuerpo o a distancia). Cada arma ataca de forma completamente automática con su propio patrón: alcance, velocidad y efecto — y tiene su propia <b>animación de ataque</b>. Puedes desbloquear hasta <b>3 ranuras de arma</b>; todas las armas equipadas atacan a la vez, sin reemplazarse. Cada arma también se puede <b>mejorar en el Laboratorio</b> con ADN, igual que las mutaciones.</div>
       </div>
       <div class="helpBlock">
         <div class="hTitle">🌀 Dash (esquiva)</div>
@@ -320,7 +337,7 @@
       </div>
       <div class="helpBlock">
         <div class="hTitle">🧫 Clones (hijos)</div>
-        <div class="hDesc">Al reproducirte generas clones que te <b>escoltan de cerca para protegerte</b> y atacan automáticamente con una de tus armas equipadas. Heredan tus mutaciones biológicas con el tiempo, comen y crecen de tamaño, y pueden <b>reproducirse por su cuenta</b>. Viajan contigo al cambiar de mundo, pero se pierden si mueres.</div>
+        <div class="hDesc">Al reproducirte generas clones que te <b>escoltan de cerca para protegerte</b> y atacan automáticamente con una de tus armas equipadas (con animación propia). Heredan tus mutaciones biológicas con el tiempo, comen y crecen de tamaño, y pueden <b>reproducirse por su cuenta</b>. Viajan contigo al cambiar de mundo, pero se pierden si mueres.</div>
       </div>
       <div class="helpBlock">
         <div class="hTitle">📏 Crecimiento</div>
@@ -336,16 +353,16 @@
       </div>
       <div class="helpBlock">
         <div class="hTitle">🧪 Dentro del Laboratorio</div>
-        <div class="hDesc">Cada mutación biológica desbloqueada tiene 5 niveles. Mejorar un nivel cuesta ADN (el costo sube en cada nivel) y potencia su efecto de forma <b>permanente</b>, incluso en partidas futuras.</div>
+        <div class="hDesc">Cada mutación biológica desbloqueada y cada <b>arma</b> tienen 5 niveles. Mejorar un nivel cuesta ADN (el costo sube en cada nivel) y potencia su efecto de forma <b>permanente</b>, incluso en partidas futuras. Las armas mejoran daño y cadencia de ataque.</div>
       </div>
       <div class="helpBlock">
         <div class="hTitle">♻️ Generaciones y herencia</div>
-        <div class="hDesc">Al morir, eliges 1 mutación biológica para heredar en tu siguiente intento y subes de Generación (más ranuras). Tu arma inicial se vuelve a elegir cada partida. Tu ADN, mutaciones desbloqueadas, sinergias descubiertas y niveles de laboratorio son <b>permanentes</b>.</div>
+        <div class="hDesc">Al morir, eliges 1 mutación biológica para heredar en tu siguiente intento y subes de Generación (más ranuras). Tu arma inicial se vuelve a elegir cada partida, pero sus niveles de Laboratorio son permanentes. Tu ADN, mutaciones desbloqueadas, sinergias descubiertas y niveles de laboratorio son <b>permanentes</b>.</div>
       </div>
       <div class="helpBlock">
         <div class="hTitle">🔘 Botones de arriba a la derecha</div>
         <div class="hDesc">
-          <b>MUNDOS</b>: abre el mapa evolutivo. <b>LAB</b>: mejora tus mutaciones con ADN. <b>STATS</b>: estadísticas de esta partida. <b>ENCICLOP.</b>: mutaciones y sinergias descubiertas y sin descubrir. <b>MENÚ</b> (rojo): vuelve a esta pantalla principal (pierdes la vida actual, pero tu progreso permanente se conserva).
+          <b>MUNDOS</b>: abre el mapa evolutivo. <b>LAB</b>: mejora tus mutaciones y armas con ADN. <b>STATS</b>: estadísticas de esta partida. <b>ENCICLOP.</b>: mutaciones y sinergias descubiertas y sin descubrir. <b>MENÚ</b> (rojo): vuelve a esta pantalla principal (pierdes la vida actual, pero tu progreso permanente se conserva).
         </div>
       </div>
     </div>
@@ -444,6 +461,8 @@
 /* =========================================================================
    PRIMER LATIDO — v3: sistema de ARMAS (ranuras separadas) + mutaciones
    biológicas, sobre el sistema de mundos / ranuras genéticas / ADN existente.
+   v3.1: animaciones de armas (melee slash + rangos ya animados) y mejora de
+   armas en el Laboratorio (5 niveles, igual que las mutaciones).
    ========================================================================= */
 
 const rand = (a,b)=> a + Math.random()*(b-a);
@@ -463,14 +482,16 @@ function pickN(arr,n){
 // reemplazan entre sí). Se elige 1 arma obligatoriamente al iniciar cada
 // partida ("ELIGE TU PRIMERA ADAPTACIÓN") y se pueden desbloquear más
 // ranuras con la progresión (generación) durante la propia partida.
+// Cada arma tiene también color propio (usado en su animación de ataque)
+// y puede mejorarse en el Laboratorio (ver WEAPON LAB LEVELS más abajo).
 // =========================================================================
 const WEAPON_DEFS = {
   mandibula:{ name:'Mandíbula', icon:'🦷', type:'melee', category:'cuerpo a cuerpo',
     desc:'Alcance corto, cadencia media, daño alto por golpe.',
-    range:58, cooldown:0.95, dmgMult:1.7 },
+    range:58, cooldown:0.95, dmgMult:1.7, color:'#ffd394' },
   garras:{ name:'Garras', icon:'🐾', type:'melee', category:'cuerpo a cuerpo',
     desc:'Alcance corto, ataques muy rápidos con menor daño y aplican sangrado.',
-    range:54, cooldown:0.45, dmgMult:0.85, bleed:1 },
+    range:54, cooldown:0.45, dmgMult:0.85, bleed:1, color:'#ff6b81' },
   veneno:{ name:'Veneno', icon:'☠️', type:'ranged', category:'a distancia',
     desc:'Proyectil de daño moderado que envenena al objetivo (acumulable).',
     range:300, cooldown:1.15, dmgMult:0.55, projSpeed:340, poison:1, color:'#b06cff' },
@@ -491,7 +512,7 @@ function weaponMaxSlots(){ return clamp(1 + Math.floor((session.generation-1)/2)
 // 1. MUTACIONES BIOLÓGICAS (world: 1/2/3 = mundo donde se desbloquea su pool;
 //    hidden = sinergia). Las antiguas mutaciones de ataque (Mandíbula, Garras,
 //    Veneno, Aguijón, Bioelectricidad) ahora viven en WEAPON_DEFS — estas de
-//    aquí son puramente biológicas y no ocupan ranuras de arma.
+//    aquí son puramente biológicas y no ocupan ranura de arma.
 // =========================================================================
 const MUTATIONS = {
   // ---- Mundo 1: Océano Primordial ----
@@ -591,10 +612,10 @@ const ALL_MUTATION_IDS = Object.keys(MUTATIONS);
 const COMBOS = ALL_MUTATION_IDS.filter(id=>MUTATIONS[id].hidden).map(id=>({parts:MUTATIONS[id].parts, result:id}));
 
 // =========================================================================
-// LABORATORIO — niveles y costos (1-5) para mutaciones biológicas. Los
-// niveles altos no son solo +%, desbloquean comportamientos nuevos vía
-// LEVEL_PERKS. (Las armas todavía no tienen niveles de laboratorio; eso
-// queda preparado para un paso posterior.)
+// LABORATORIO — niveles y costos (1-5) para mutaciones biológicas Y armas.
+// Los niveles altos no son solo +%, desbloquean comportamientos nuevos vía
+// LEVEL_PERKS. Las armas comparten la misma tabla de costos y el mismo
+// límite de 5 niveles; su bonus se aplica en updateWeapons/fireWeaponProjectile.
 // =========================================================================
 const LEVEL_COSTS = [100, 200, 350, 550, 800]; // costo para pasar de nivel i -> i+1 (índice 0 = nivel1->2)
 const MAX_LEVEL = 5;
@@ -617,6 +638,38 @@ function getLevelDesc(id, lvl){
   if(LEVEL_PERKS[id]) return LEVEL_PERKS[id][lvl-1] || LEVEL_PERKS[id][LEVEL_PERKS[id].length-1];
   return 'Nivel '+lvl+': efecto base +'+Math.round((levelBonusMult(lvl)-1)*100)+'%';
 }
+
+// ---- Niveles de Laboratorio para ARMAS ----
+// Cada nivel: +12% de daño acumulado y -6% de cooldown (más cadencia), hasta
+// nivel 5 que además añade un pequeño extra propio de cada arma (perforación,
+// alcance, proyectiles extra, etc.)
+const WEAPON_LEVEL_PERKS = {
+  mandibula: ['+12% daño','+24% daño y -6% cooldown','+36% daño y -12% cooldown','+48% daño y -18% cooldown','+65% daño, -24% cooldown y +15% alcance'],
+  garras: ['+12% daño','+24% daño y +bleed','+36% daño y -12% cooldown','+48% daño y -18% cooldown','+65% daño, -24% cooldown y bleed doble'],
+  veneno: ['+12% daño','+24% daño y -6% cooldown','+36% daño y +1 apilado de veneno','+48% daño y -12% cooldown','+65% daño y veneno mucho más potente'],
+  aguijon: ['+12% daño','+24% daño y -8% cooldown','+36% daño y +10% alcance','+48% daño y -16% cooldown','+65% daño y perfora 1 enemigo extra'],
+  esporas: ['+12% daño','+24% daño y +12% radio de explosión','+36% daño y -8% cooldown','+48% daño y +24% radio','+65% daño y radio de explosión x1.5'],
+  bioelectricidad: ['+12% daño','+24% daño y -8% cooldown','+36% daño y cadena a 2 enemigos','+48% daño y -16% cooldown','+65% daño y la cadena golpea 3 enemigos'],
+};
+function weaponLevelMult(level){ return 1 + (level-1)*0.12; } // multiplicador de daño acumulado
+function weaponCooldownMult(level){ return 1 - clamp((level-1)*0.06, 0, 0.3); } // cooldown se reduce con el nivel
+function getWeaponLevel(id){ return (session.weaponLevels && session.weaponLevels[id]) || 1; }
+function getWeaponUpgradeCost(id){
+  const lvl = getWeaponLevel(id);
+  if(lvl>=MAX_LEVEL) return null;
+  return LEVEL_COSTS[lvl-1];
+}
+function getWeaponLevelDesc(id, lvl){
+  if(WEAPON_LEVEL_PERKS[id]) return WEAPON_LEVEL_PERKS[id][lvl-1] || WEAPON_LEVEL_PERKS[id][WEAPON_LEVEL_PERKS[id].length-1];
+  return 'Nivel '+lvl+': +'+Math.round((weaponLevelMult(lvl)-1)*100)+'% daño';
+}
+// Extras de nivel 5 aplicados directamente en el disparo/golpe (ver updateWeapons / fireWeaponProjectile)
+function weaponPierceBonus(id, lvl){ return (id==='aguijon' && lvl>=5) ? 1 : 0; }
+function weaponChainBonus(id, lvl){ if(id!=='bioelectricidad') return 0; if(lvl>=5) return 2; if(lvl>=3) return 1; return 0; }
+function weaponAoeMult(id, lvl){ if(id!=='esporas') return 1; if(lvl>=5) return 1.5; if(lvl>=4) return 1.24; if(lvl>=2) return 1.12; return 1; }
+function weaponRangeMult(id, lvl){ if(id==='mandibula' && lvl>=5) return 1.15; if(id==='aguijon' && lvl>=4) return 1.10; return 1; }
+function weaponPoisonBonus(id, lvl){ if(id!=='veneno') return 0; if(lvl>=5) return 3; if(lvl>=3) return 1; return 0; }
+function weaponBleedMult(id, lvl){ if(id!=='garras') return 1; if(lvl>=5) return 2; if(lvl>=2) return 1.3; return 1; }
 
 // Escalado específico de las habilidades activas biológicas según su nivel de Laboratorio.
 function shockwaveRadius(lvl){ return [150,190,230,270,320][clamp(lvl,1,5)-1]; }
@@ -694,6 +747,7 @@ function defaultSession(){
     inheritSingle:null,   // 1 mutación biológica heredada tras muerte normal
     inheritDouble:null,   // 2 mutaciones biológicas heredadas al completar un mundo
     mutationLevels:{},    // {mutationId: nivel 1-5}, mejorado en el Laboratorio con ADN
+    weaponLevels:{},      // {weaponId: nivel 1-5}, mejorado en el Laboratorio con ADN
     stats:{ totalKills:0, totalDeaths:0, bestTime:0 },
   };
 }
@@ -717,6 +771,7 @@ session.unlockedWorlds.forEach(wid=>{
   if(WORLDS[wid]) WORLDS[wid].mutationPool.forEach(unlockMutation);
 });
 if(!Array.isArray(session.everOfferedMutations)) session.everOfferedMutations = [];
+if(!session.weaponLevels) session.weaponLevels = {};
 saveSession();
 
 function isUnlocked(id){ return session.unlockedMutations.includes(id); }
@@ -773,7 +828,7 @@ function startRun(worldId, carryClones){
     mutations: startMutations.filter(id=>MUTATIONS[id]),
     weapons: [], // se elige la primera arma justo después de startRun()
     nextWeaponOfferAt: 45,
-    clones: [], enemies: [], pellets: [], projectiles: [], dashTrail: [], shockwaveFx:null, lightningFx: [],
+    clones: [], enemies: [], pellets: [], projectiles: [], dashTrail: [], shockwaveFx:null, lightningFx: [], meleeFx: [], cloneShockwaveFx: [],
     spawnTimer:2.2, ambientFoodTimer:3,
     nextMutationAt: 14,
     bossActive:false, bossDefeated:false, bossesDefeated:0, bossSpawnCount:0, finalBossSpawned:false, nextBossAt: BOSS_INTERVAL,
@@ -1010,9 +1065,10 @@ function refreshWeaponsRow(){
       const id = run.weapons[i];
       if(id){
         const wd = WEAPON_DEFS[id];
+        const lvl = getWeaponLevel(id);
         div.className = 'slot weapon';
         div.textContent = wd.icon;
-        div.title = wd.name + ' — ' + wd.desc;
+        div.title = wd.name + ' (nivel '+lvl+'/'+MAX_LEVEL+') — ' + wd.desc;
       } else {
         div.className = 'slot empty';
         div.title = 'Ranura de arma vacía';
@@ -1048,6 +1104,13 @@ function updateWorldHud(){
 // ("ELIGE TU PRIMERA ADAPTACIÓN") y ofertas opcionales de ranura extra
 // durante la partida cuando weaponMaxSlots() lo permite.
 // =========================================================================
+function weaponCardDesc(id){
+  const wd = WEAPON_DEFS[id];
+  const lvl = getWeaponLevel(id);
+  const lvlNote = lvl>1 ? ` <span style="color:var(--dna)">(Lab nivel ${lvl}/${MAX_LEVEL})</span>` : '';
+  return wd.desc + lvlNote;
+}
+
 function showWeaponPick(isInitial){
   if(!run) return;
   run.paused = true;
@@ -1066,7 +1129,7 @@ function showWeaponPick(isInitial){
     card.className = 'card weaponCard';
     card.innerHTML = `<div class="cName"><span>${wd.icon} ${wd.name}</span></div>
                        <div class="cCat">${wd.category}</div>
-                       <div class="cDesc">${wd.desc}</div>`;
+                       <div class="cDesc">${weaponCardDesc(id)}</div>`;
     card.onclick = ()=>{
       run.weapons.push(id);
       run.player.weaponCd[id] = 0;
@@ -1107,7 +1170,7 @@ function showWeaponPostBoss(){
     card.className = 'card weaponCard';
     card.innerHTML = `<div class="cName"><span>${wd.icon} ${wd.name}</span></div>
                        <div class="cCat">${wd.category}</div>
-                       <div class="cDesc">${wd.desc}</div>`;
+                       <div class="cDesc">${weaponCardDesc(id)}</div>`;
     // Siempre se ofrece la posibilidad de reemplazar, incluso si hay ranuras libres.
     card.onclick = ()=>{ showWeaponReplaceScreen(id); };
     wrap.appendChild(card);
@@ -1365,6 +1428,8 @@ function spawnClone(x,y){
     bonusMaxHp:0,
     // Reproducción propia del clon: acumula alimento y genera un nuevo clon al llenarse
     food:0, maxFood: CLONE_MAX_FOOD,
+    // Onda expansiva propia del clon (si hereda esa mutación, o si el jugador tiene Enjambre Total)
+    shockwaveCd: rand(1,4),
   };
   recalcCloneStats(c);
   c.hp = c.maxHp;
@@ -1399,6 +1464,8 @@ function pickCloneWeapon(){
 // =========================================================================
 // 8b. ARMAS — disparo/golpe automático de cada arma equipada por el jugador,
 // y de la escolta (clones). Todas las armas equipadas atacan a la vez.
+// Cada golpe/disparo produce una animación (slash para melee, proyectil
+// animado para las de rango — ver fireWeaponProjectile / render()).
 // =========================================================================
 const MAX_PROJECTILES = 30;
 
@@ -1406,43 +1473,66 @@ function updateWeapons(dt){
   const p = run.player;
   run.weapons.forEach(wid=>{
     const wd = WEAPON_DEFS[wid];
+    const lvl = getWeaponLevel(wid);
+    const lvlDmgMult = weaponLevelMult(lvl);
+    const lvlCdMult = weaponCooldownMult(lvl);
+    const effRange = wd.range * weaponRangeMult(wid, lvl);
     if(p.weaponCd[wid]===undefined) p.weaponCd[wid] = 0;
     p.weaponCd[wid] -= dt;
     if(p.weaponCd[wid] > 0) return;
     if(wd.type==='melee'){
-      const target = nearestEnemy(p, wd.range + p.r);
+      const target = nearestEnemy(p, effRange + p.r);
       if(target){
-        const dmg = p.atk * wd.dmgMult;
+        const dmg = p.atk * wd.dmgMult * lvlDmgMult;
         target.hp -= dmg;
-        if(wd.bleed){ target.bleedStacks = (target.bleedStacks||0) + wd.bleed; }
-        p.weaponCd[wid] = wd.cooldown;
+        if(wd.bleed){ target.bleedStacks = (target.bleedStacks||0) + wd.bleed*weaponBleedMult(wid, lvl); }
+        p.weaponCd[wid] = wd.cooldown * lvlCdMult;
+        spawnMeleeFx(p.x, p.y, target.x, target.y, effRange, wd.color||'#ffb454', wd.icon);
       }
     } else {
-      const target = nearestEnemy(p, wd.range);
+      const target = nearestEnemy(p, effRange);
       if(target){
-        fireWeaponProjectile(wid, wd, p.x, p.y, p.atk, target);
-        p.weaponCd[wid] = wd.cooldown;
+        fireWeaponProjectile(wid, wd, p.x, p.y, p.atk, target, lvl);
+        p.weaponCd[wid] = wd.cooldown * lvlCdMult;
       }
     }
   });
 }
 
-function fireWeaponProjectile(wid, wd, ox, oy, atkStat, target){
+// Animación de golpe cuerpo a cuerpo: un arco/slash que se dibuja brevemente
+// entre el atacante y el objetivo golpeado (ver render()).
+function spawnMeleeFx(ox, oy, tx, ty, range, color, icon){
+  if(!run) return;
+  const ang = Math.atan2(ty-oy, tx-ox);
+  run.meleeFx.push({ x:ox, y:oy, angle:ang, range: Math.min(range, dist({x:ox,y:oy},{x:tx,y:ty})+18), life:0.18, maxLife:0.18, color, icon });
+  if(run.meleeFx.length>24) run.meleeFx.shift();
+}
+
+function fireWeaponProjectile(wid, wd, ox, oy, atkStat, target, lvl){
   if(run.projectiles.length >= MAX_PROJECTILES) return;
+  lvl = lvl || getWeaponLevel(wid);
+  const lvlDmgMult = weaponLevelMult(lvl);
   let count = 1;
   if(run.mutations.includes('multidisparo')) count = multidisparoCount(getMutationLevel('multidisparo'));
   const baseAng = Math.atan2(target.y-oy, target.x-ox);
+  const pierceBonus = weaponPierceBonus(wid, lvl);
+  const chainBonus = weaponChainBonus(wid, lvl);
+  const aoeMult = weaponAoeMult(wid, lvl);
+  const poisonBonus = weaponPoisonBonus(wid, lvl);
   for(let i=0;i<count && run.projectiles.length<MAX_PROJECTILES;i++){
     const spread = count>1 ? (i-(count-1)/2)*0.16 : 0;
     const ang = baseAng + spread;
     run.projectiles.push({
       x:ox, y:oy,
       vx:Math.cos(ang)*wd.projSpeed, vy:Math.sin(ang)*wd.projSpeed,
-      dmg: atkStat*wd.dmgMult, r:5,
-      maxRange: wd.range, traveled:0, pierce:0,
-      poison: wd.poison||0, aoe: wd.aoe||0, chainFx: !!wd.chainFx,
+      dmg: atkStat*wd.dmgMult*lvlDmgMult,
+      r:5,
+      maxRange: wd.range, traveled:0, pierce:pierceBonus,
+      poison: (wd.poison||0) + poisonBonus, aoe: (wd.aoe||0)*aoeMult, chainFx: !!wd.chainFx,
+      chainExtra: chainBonus,
       color: wd.color||'#5cd9ff',
       hitSet: new Set(),
+      trail: [],
     });
   }
 }
@@ -1452,11 +1542,20 @@ function updateProjectiles(dt){
     run.lightningFx[i].life -= dt;
     if(run.lightningFx[i].life<=0) run.lightningFx.splice(i,1);
   }
+  for(let i=run.meleeFx.length-1;i>=0;i--){
+    run.meleeFx[i].life -= dt;
+    if(run.meleeFx[i].life<=0) run.meleeFx.splice(i,1);
+  }
   for(let i=run.projectiles.length-1;i>=0;i--){
     const pr = run.projectiles[i];
     const stepX = pr.vx*dt, stepY = pr.vy*dt;
     pr.x += stepX; pr.y += stepY;
     pr.traveled += Math.hypot(stepX,stepY);
+    // Rastro visual (estela) del proyectil.
+    pr.trail = pr.trail || [];
+    pr.trail.push({x:pr.x, y:pr.y, life:0.18});
+    if(pr.trail.length>6) pr.trail.shift();
+    for(const tp of pr.trail){ tp.life -= dt; }
 
     let consumed = false;
     for(const e of run.enemies){
@@ -1471,12 +1570,16 @@ function updateProjectiles(dt){
         if(pr.chainFx){
           // Destello eléctrico en el punto de impacto inicial.
           run.lightningFx.push({x1:pr.x, y1:pr.y, x2:e.x, y2:e.y, life:0.22, maxLife:0.22});
-          const other = run.enemies.find(o=>o!==e && !pr.hitSet.has(o) && dist(o,e)<140);
-          if(other){
+          let chainsLeft = 1 + (pr.chainExtra||0);
+          let lastNode = e;
+          while(chainsLeft>0){
+            const other = run.enemies.find(o=>o!==lastNode && !pr.hitSet.has(o) && dist(o,lastNode)<140);
+            if(!other) break;
             other.hp -= pr.dmg*0.5;
             pr.hitSet.add(other);
-            // Rayo animado que salta visualmente de un enemigo al siguiente.
-            run.lightningFx.push({x1:e.x, y1:e.y, x2:other.x, y2:other.y, life:0.3, maxLife:0.3});
+            run.lightningFx.push({x1:lastNode.x, y1:lastNode.y, x2:other.x, y2:other.y, life:0.3, maxLife:0.3});
+            lastNode = other;
+            chainsLeft--;
           }
         }
         if(pr.pierce>0){ pr.pierce--; } else { consumed = true; }
@@ -1513,6 +1616,29 @@ function activateShockwave(){
     if(dist(e,p) <= radius+e.r){ e.hp -= p.atk*dmgMult; hits++; }
   });
   notify('💥 Onda expansiva' + (hits? ' — '+hits+' impactos':''), false);
+}
+
+const CLONE_SHOCKWAVE_FOOD_COST = 9; // alimento que le cuesta a un clon activar su propia onda expansiva
+
+// Los clones que hayan heredado la mutación Onda Expansiva (o cuyo jugador tenga
+// Enjambre Total, que comparte todas las estadísticas) también pueden liberar su
+// propia onda de daño en área. En vez de energía, gastan un poco de su barra de
+// alimento (los clones no tienen barra de energía propia).
+function activateCloneShockwave(c){
+  const p = run.player;
+  const hasIt = c.mutationsGained.includes('ondaExpansiva') || (p.sharedStats && p.hasShockwave);
+  if(!hasIt) return;
+  if(c.shockwaveCd>0) return;
+  if((c.food||0) < CLONE_SHOCKWAVE_FOOD_COST) return;
+  c.food = Math.max(0, (c.food||0) - CLONE_SHOCKWAVE_FOOD_COST);
+  const lvl = getMutationLevel('ondaExpansiva');
+  const radius = shockwaveRadius(lvl) * 0.8;
+  const dmgMult = shockwaveDmgMult(lvl);
+  c.shockwaveCd = rand(6,8);
+  run.cloneShockwaveFx.push({ x:c.x, y:c.y, r:radius, timer:0.45, maxTimer:0.45 });
+  run.enemies.forEach(e=>{
+    if(dist(e,c) <= radius+e.r){ e.hp -= c.atk*dmgMult; }
+  });
 }
 
 const DASH_DURATION = 0.25;   // segundos que dura el impulso
@@ -1553,6 +1679,10 @@ function updateAbilities(dt){
   if(run.shockwaveFx){
     run.shockwaveFx.timer -= dt;
     if(run.shockwaveFx.timer<=0) run.shockwaveFx = null;
+  }
+  for(let i=run.cloneShockwaveFx.length-1;i>=0;i--){
+    run.cloneShockwaveFx[i].timer -= dt;
+    if(run.cloneShockwaveFx[i].timer<=0) run.cloneShockwaveFx.splice(i,1);
   }
 
   updateAbilityCds();
@@ -1798,22 +1928,31 @@ function update(dt){
     }
     c.x = clamp(c.x,10,WORLD_SIZE.w-10); c.y = clamp(c.y,10,WORLD_SIZE.h-10);
 
-    // Ataque automático del clon: usa una de las armas equipadas por el jugador.
+    if(c.shockwaveCd>0) c.shockwaveCd -= dt;
+    activateCloneShockwave(c);
+
+    // Ataque automático del clon: usa una de las armas equipadas por el jugador,
+    // con el mismo nivel de Laboratorio y las mismas animaciones que el jugador.
     const wid = pickCloneWeapon();
     if(wid){
       const wd = WEAPON_DEFS[wid];
+      const clvl = getWeaponLevel(wid);
+      const clvlDmgMult = weaponLevelMult(clvl);
+      const clvlCdMult = weaponCooldownMult(clvl);
+      const cEffRange = wd.range * weaponRangeMult(wid, clvl);
       c.weaponCd -= dt;
       if(c.weaponCd<=0){
-        const target = nearestEnemy(c, wd.range + (wd.type==='melee'?c.r:0));
+        const target = nearestEnemy(c, cEffRange + (wd.type==='melee'?c.r:0));
         if(target){
           if(wd.type==='melee'){
-            const dmg = c.atk*wd.dmgMult;
+            const dmg = c.atk*wd.dmgMult*clvlDmgMult;
             target.hp -= dmg;
-            if(wd.bleed){ target.bleedStacks = (target.bleedStacks||0) + wd.bleed*0.6; }
+            if(wd.bleed){ target.bleedStacks = (target.bleedStacks||0) + wd.bleed*0.6*weaponBleedMult(wid, clvl); }
+            spawnMeleeFx(c.x, c.y, target.x, target.y, cEffRange, wd.color||'#7fe9e2', wd.icon);
           } else {
-            fireWeaponProjectile(wid, wd, c.x, c.y, c.atk, target);
+            fireWeaponProjectile(wid, wd, c.x, c.y, c.atk, target, clvl);
           }
-          c.weaponCd = wd.cooldown;
+          c.weaponCd = wd.cooldown * clvlCdMult;
         }
       }
     }
@@ -1919,8 +2058,39 @@ function render(){
     if(!e.boss) drawHpBar(e.x,e.y-e.r-10,e.hp,e.maxHp, 26);
   });
 
-  // Proyectiles de armas: cápsula orientada, salvo Bioelectricidad que vuela como un rayo.
+  // Animación de armas cuerpo a cuerpo: arco tipo "slash" que se desvanece,
+  // orientado hacia el objetivo golpeado.
+  run.meleeFx.forEach(fx=>{
+    const prog = 1 - (fx.life/fx.maxTimer||fx.life/0.18);
+    const t = clamp(1 - fx.life/0.18, 0, 1);
+    ctx.save();
+    ctx.translate(fx.x, fx.y);
+    ctx.rotate(fx.angle);
+    ctx.globalAlpha = Math.max(0, 1-t) * 0.9;
+    ctx.strokeStyle = fx.color;
+    ctx.lineWidth = 4.5 * (1 - t*0.4);
+    ctx.shadowColor = fx.color;
+    ctx.shadowBlur = 10;
+    const r0 = fx.range*0.35 + fx.range*0.5*t;
+    ctx.beginPath();
+    ctx.arc(0, 0, r0, -0.62, 0.62);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // Proyectiles de armas: cápsula orientada + estela, salvo Bioelectricidad
+  // que vuela como un rayo animado en zigzag.
   run.projectiles.forEach(pr=>{
+    if(pr.trail && pr.trail.length){
+      ctx.save();
+      pr.trail.forEach(tp=>{
+        const a = clamp(tp.life/0.18, 0, 1) * 0.35;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = pr.color||'#5cd9ff';
+        ctx.beginPath(); ctx.arc(tp.x, tp.y, 3, 0, 7); ctx.fill();
+      });
+      ctx.restore();
+    }
     if(pr.chainFx){
       // Rayo en vuelo: segmento en zigzag detrás del proyectil, con resplandor eléctrico.
       const ang = Math.atan2(pr.vy, pr.vx);
@@ -1994,6 +2164,14 @@ function render(){
     ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*Math.min(1,prog*1.6+0.2), 0, 7); ctx.stroke();
     ctx.restore();
   }
+  run.cloneShockwaveFx.forEach(fx=>{
+    const prog = 1 - (fx.timer/fx.maxTimer);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1-prog)*0.6;
+    ctx.strokeStyle = '#7fe9e2'; ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.r*Math.min(1,prog*1.6+0.2), 0, 7); ctx.stroke();
+    ctx.restore();
+  });
 
   run.dashTrail.forEach(t=>{
     ctx.save();
@@ -2078,12 +2256,14 @@ function renderClonesPanel(){
   }
   row.innerHTML = run.clones.map((c,i)=>{
     const pct = clamp(c.hp/c.maxHp,0,1)*100;
+    const foodPct = clamp((c.food||0)/(c.maxFood||CLONE_MAX_FOOD),0,1)*100;
     const barColor = pct>50 ? 'var(--teal)' : (pct>20 ? 'var(--amber)' : 'var(--danger)');
     const muts = c.mutationsGained.map(id=> MUTATIONS[id] ? MUTATIONS[id].icon : '').join(' ');
     const tip = 'Clon '+(i+1)+': '+Math.round(c.hp)+'/'+Math.round(c.maxHp)+' HP — '+
       (c.mutationsGained.length ? c.mutationsGained.map(id=>MUTATIONS[id]?MUTATIONS[id].name:id).join(', ') : 'sin mutaciones aún');
     return `<div class="cloneChip" title="${tip}">
       <div class="cloneChipHpWrap"><div class="cloneChipHpFill" style="width:${pct}%; background:${barColor};"></div></div>
+      <div class="cloneChipFoodWrap"><div class="cloneChipFoodFill" style="width:${foodPct}%;"></div></div>
       <div class="cloneChipMuts">${muts || '·'}</div>
     </div>`;
   }).join('');
@@ -2166,14 +2346,15 @@ function openEncyclopedia(){
   const wHeader = document.createElement('div');
   wHeader.className = 'encItem known';
   wHeader.style.borderColor = 'var(--weapon)';
-  wHeader.innerHTML = '<div class="encName" style="color:var(--weapon)">🗡️ ARMAS</div><div class="encDesc">Se eligen al empezar cada partida. Puedes equipar hasta 3 a la vez.</div>';
+  wHeader.innerHTML = '<div class="encName" style="color:var(--weapon)">🗡️ ARMAS</div><div class="encDesc">Se eligen al empezar cada partida. Puedes equipar hasta 3 a la vez y mejorarlas en el Laboratorio.</div>';
   list.appendChild(wHeader);
   WEAPON_IDS.forEach(id=>{
     const wd = WEAPON_DEFS[id];
+    const lvl = getWeaponLevel(id);
     const div = document.createElement('div');
     div.className = 'encItem known';
     div.style.borderColor = 'var(--weapon)';
-    div.innerHTML = `<div class="encName">${wd.icon} ${wd.name}</div><div class="encDesc">(${wd.category}) ${wd.desc}</div>`;
+    div.innerHTML = `<div class="encName">${wd.icon} ${wd.name} <span style="color:var(--dna); font-weight:normal;">Nv.${lvl}/${MAX_LEVEL}</span></div><div class="encDesc">(${wd.category}) ${wd.desc}</div>`;
     list.appendChild(div);
   });
 
@@ -2261,6 +2442,48 @@ function openLab(){
   document.getElementById('dnaLabSub').textContent = 'ADN disponible: 🧬 ' + Math.floor(session.dna);
   const list = document.getElementById('labList');
   list.innerHTML = '';
+
+  // ---- Sección de ARMAS ----
+  const wHeader = document.createElement('div');
+  wHeader.className = 'labSectionHeader';
+  wHeader.style.color = 'var(--weapon)';
+  wHeader.textContent = '🗡️ ARMAS';
+  list.appendChild(wHeader);
+  WEAPON_IDS.forEach(id=>{
+    const wd = WEAPON_DEFS[id];
+    const lvl = getWeaponLevel(id);
+    const cost = getWeaponUpgradeCost(id);
+    const div = document.createElement('div');
+    div.className = 'labItem';
+    div.style.borderColor = 'var(--weapon)';
+    const dots = Array.from({length:MAX_LEVEL}, (_,i)=>`<div class="lDot ${i<lvl?'filled':''}" style="${i<lvl?'background:var(--weapon)':''}"></div>`).join('');
+    div.innerHTML = `
+      <div class="lName" style="color:var(--weapon)"><span>${wd.icon} ${wd.name}</span><span class="lLevel">NIVEL ${lvl}/${MAX_LEVEL}</span></div>
+      <div class="lDots">${dots}</div>
+      <div class="lDesc" style="color:var(--text)">${wd.category}: ${wd.desc}</div>
+      <div class="lDesc"><b style="color:var(--amber)">Efecto de nivel actual:</b> ${getWeaponLevelDesc(id, lvl)}</div>
+      <div class="lBtnRow">
+        <span class="lDesc">${cost ? 'Siguiente nivel: '+getWeaponLevelDesc(id, lvl+1) : 'Nivel máximo alcanzado'}</span>
+        <button class="lUpBtn" ${(!cost || session.dna<cost) ? 'disabled':''}>${cost ? 'MEJORAR · '+cost+' 🧬' : 'MAX'}</button>
+      </div>`;
+    const btn = div.querySelector('.lUpBtn');
+    if(cost && session.dna>=cost){
+      btn.onclick = ()=>{
+        session.dna -= cost;
+        session.weaponLevels[id] = lvl+1;
+        saveSession();
+        refreshWeaponsRow();
+        openLab();
+      };
+    }
+    list.appendChild(div);
+  });
+
+  // ---- Sección de MUTACIONES BIOLÓGICAS ----
+  const mHeader = document.createElement('div');
+  mHeader.className = 'labSectionHeader';
+  mHeader.textContent = '🧬 MUTACIONES BIOLÓGICAS';
+  list.appendChild(mHeader);
   const unlockedIds = session.unlockedMutations.filter(id=>MUTATIONS[id] && !MUTATIONS[id].hidden);
   const discoveredCombos = session.discoveredCombos.slice();
   const orderedIds = [...unlockedIds, ...discoveredCombos];
@@ -2434,6 +2657,7 @@ resizeCanvas();
 requestAnimationFrame(loop);
 
 })();
+
 </script>
 </body>
 </html>
